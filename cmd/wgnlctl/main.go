@@ -22,6 +22,47 @@ func main() {
 	}
 
 	for _, d := range devices {
-		fmt.Printf("%#v\n", d)
+		printDevice(d)
+
+		for _, p := range d.Peers {
+			printPeer(p)
+		}
 	}
+}
+
+func printDevice(d *wireguardnl.Device) {
+	const f = `interface: %s
+  public key: %s
+  private key: (hidden)
+  listening port: %d
+
+  `
+
+	fmt.Printf(
+		f,
+		d.Name,
+		d.PublicKey.String(),
+		d.ListenPort)
+}
+
+func printPeer(p wireguardnl.Peer) {
+	const f = `peer: %s
+  endpoint: %s
+  allowed ips: %s
+  latest handshake: %s
+  transfer: %d B received, %d B sent
+
+`
+
+	fmt.Printf(
+		f,
+		p.PublicKey.String(),
+		// TODO(mdlayher): get right endpoint with getnameinfo.
+		p.Endpoint.String(),
+		// TODO(mdlayher): iterate each address.
+		p.AllowedIPs[0].String(),
+		p.LastHandshakeTime.String(),
+		p.ReceiveBytes,
+		p.TransmitBytes,
+	)
 }
