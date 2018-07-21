@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
+	"unsafe"
 
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
@@ -167,8 +169,159 @@ func parseDevice(m genetlink.Message) (*Device, error) {
 			d.ListenPort = int(nlenc.Uint16(a.Data))
 		case wgh.DeviceAFwmark:
 			d.FirewallMark = int(nlenc.Uint32(a.Data))
+		case wgh.DeviceAPeers:
+			peers, err := parsePeers(a.Data)
+			if err != nil {
+				return nil, err
+			}
+
+			d.Peers = peers
 		}
 	}
 
 	return &d, nil
+}
+
+// parsePeers parses a slice of Peers from a netlink attribute payload.
+func parsePeers(b []byte) ([]Peer, error) {
+	attrs, err := netlink.UnmarshalAttributes(b)
+	if err != nil {
+		return nil, err
+	}
+
+	// This is a netlink "array", so each attribute's data contains more
+	// nested attributes for a new Peer.
+	ps := make([]Peer, 0, len(attrs))
+	for _, a := range attrs {
+		nattrs, err := netlink.UnmarshalAttributes(a.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		var p Peer
+		for _, na := range nattrs {
+			switch na.Type {
+			case wgh.PeerAPublicKey:
+				p.PublicKey = newKey(na.Data)
+			case wgh.PeerAPresharedKey:
+				p.PresharedKey = newKey(na.Data)
+			case wgh.PeerAEndpoint:
+				p.Endpoint = parseSockaddr(na.Data)
+			case wgh.PeerAPersistentKeepaliveInterval:
+				// TODO(mdlayher): is this actually in seconds?
+				p.PersistentKeepaliveInterval = time.Duration(nlenc.Uint16(na.Data)) * time.Second
+			case wgh.PeerALastHandshakeTime:
+				p.LastHandshakeTime = parseTimespec(na.Data)
+			case wgh.PeerARxBytes:
+				p.ReceiveBytes = int(nlenc.Uint64(na.Data))
+			case wgh.PeerATxBytes:
+				p.TransmitBytes = int(nlenc.Uint64(na.Data))
+			case wgh.PeerAAllowedips:
+				ipns, err := parseAllowedIPs(na.Data)
+				if err != nil {
+					return nil, err
+				}
+
+				p.AllowedIPs = ipns
+			}
+		}
+
+		ps = append(ps, p)
+	}
+
+	return ps, nil
+}
+
+// parseAddr parses a net.IP from raw in_addr or in6_addr struct bytes.
+func parseAddr(b []byte) net.IP {
+	switch len(b) {
+	case net.IPv4len, net.IPv6len:
+		// Okay to convert directly to net.IP; memory layout is identical.
+		return net.IP(b)
+	default:
+		panic(fmt.Sprintf("wireguardnl: unexpected IP address size: %d", len(b)))
+	}
+}
+
+// parseSockaddr parses a *net.UDPAddr from raw sockaddr_in or sockaddr_in6 bytes.
+func parseSockaddr(b []byte) *net.UDPAddr {
+	switch len(b) {
+	case unix.SizeofSockaddrInet4:
+		// IPv4 address parsing.
+		sa := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&b[0]))
+
+		return &net.UDPAddr{
+			IP:   net.IP(sa.Addr[:]).To4(),
+			Port: int(sa.Port),
+		}
+	case unix.SizeofSockaddrInet6:
+		// IPv6 address parsing.
+		sa := *(*unix.RawSockaddrInet6)(unsafe.Pointer(&b[0]))
+
+		return &net.UDPAddr{
+			IP:   net.IP(sa.Addr[:]),
+			Port: int(sa.Port),
+		}
+	default:
+		panic(fmt.Sprintf("wireguardnl: unexpected sockaddr size: %d", len(b)))
+	}
+}
+
+const sizeofTimespec = int(unsafe.Sizeof(unix.Timespec{}))
+
+// parseTimespec parses a time.Time from raw timespec bytes.
+func parseTimespec(b []byte) time.Time {
+	if len(b) != sizeofTimespec {
+		panic(fmt.Sprintf("wireguardnl: unexpected timespec size: %d", len(b)))
+	}
+
+	ts := *(*unix.Timespec)(unsafe.Pointer(&b[0]))
+	return time.Unix(ts.Sec, ts.Nsec)
+}
+
+// parseAllowedIPs parses a slice of net.IPNet from a netlink attribute payload.
+func parseAllowedIPs(b []byte) ([]net.IPNet, error) {
+	attrs, err := netlink.UnmarshalAttributes(b)
+	if err != nil {
+		return nil, err
+	}
+
+	// This is a netlink "array", so each attribute's data contains more
+	// nested attributes for a new net.IPNet.
+	ipns := make([]net.IPNet, 0, len(attrs))
+	for _, a := range attrs {
+		nattrs, err := netlink.UnmarshalAttributes(a.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		var (
+			ipn    net.IPNet
+			mask   int
+			family int
+		)
+
+		for _, na := range nattrs {
+			switch na.Type {
+			case wgh.AllowedipAIpaddr:
+				ipn.IP = parseAddr(na.Data)
+			case wgh.AllowedipACidrMask:
+				mask = int(nlenc.Uint8(na.Data))
+			case wgh.AllowedipAFamily:
+				family = int(nlenc.Uint16(na.Data))
+			}
+		}
+
+		// The address family determines the correct number of bits in the mask.
+		switch family {
+		case unix.AF_INET:
+			ipn.Mask = net.CIDRMask(mask, 32)
+		case unix.AF_INET6:
+			ipn.Mask = net.CIDRMask(mask, 128)
+		}
+
+		ipns = append(ipns, ipn)
+	}
+
+	return ipns, nil
 }

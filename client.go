@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
+	"time"
 )
 
 // A Client provides access to Linux WireGuard netlink information.
@@ -65,6 +67,7 @@ type Device struct {
 	PublicKey    Key
 	ListenPort   int
 	FirewallMark int
+	Peers        []Peer
 }
 
 const keyLen = 32 // wgh.KeyLen
@@ -88,4 +91,16 @@ func newKey(b []byte) Key {
 // String returns the base64 string representation of a Key.
 func (k Key) String() string {
 	return base64.StdEncoding.EncodeToString(k[:])
+}
+
+// A Peer is a WireGuard peer to a Device.
+type Peer struct {
+	PublicKey                   Key
+	PresharedKey                Key
+	Endpoint                    *net.UDPAddr
+	PersistentKeepaliveInterval time.Duration
+	LastHandshakeTime           time.Time
+	ReceiveBytes                int
+	TransmitBytes               int
+	AllowedIPs                  []net.IPNet
 }
