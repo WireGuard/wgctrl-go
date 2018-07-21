@@ -22,6 +22,8 @@ var _ osClient = &client{}
 type client struct {
 	c      *genetlink.Conn
 	family genetlink.Family
+
+	interfaces func() ([]net.Interface, error)
 }
 
 // newClient opens a connection to the wireguard family using generic netlink.
@@ -45,6 +47,9 @@ func initClient(c *genetlink.Conn) (*client, error) {
 	return &client{
 		c:      c,
 		family: f,
+
+		// By default, gather interfaces using package net.
+		interfaces: net.Interfaces,
 	}, nil
 }
 
@@ -58,7 +63,7 @@ func (c *client) Devices() ([]*Device, error) {
 	// TODO(mdlayher): it doesn't seem possible to do a typical netlink dump
 	// of all WireGuard devices.  Perhaps consider raising this to the developers
 	// to solicit their feedback.
-	ifis, err := net.Interfaces()
+	ifis, err := c.interfaces()
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +145,7 @@ func (c *client) getDevice(index int, name string) (*Device, error) {
 		}
 	}
 
-	if len(msgs) > 1 {
+	if len(msgs) != 1 {
 		return nil, fmt.Errorf("wireguardnl: unexpected number of response messages: %d", len(msgs))
 	}
 
