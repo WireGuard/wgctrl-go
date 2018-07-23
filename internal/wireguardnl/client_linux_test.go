@@ -13,8 +13,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
+	"github.com/mdlayher/wireguardctrl/internal/wireguardnl/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
-	"github.com/mdlayher/wireguardctrl/wireguardnl/internal/wgh"
 	"golang.org/x/sys/unix"
 
 	"github.com/mdlayher/genetlink"

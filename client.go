@@ -4,9 +4,9 @@ import (
 	"io"
 	"runtime"
 
+	"github.com/mdlayher/wireguardctrl/internal/wireguardcfg"
+	"github.com/mdlayher/wireguardctrl/internal/wireguardnl"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
-	"github.com/mdlayher/wireguardctrl/wireguardcfg"
-	"github.com/mdlayher/wireguardctrl/wireguardnl"
 )
 
 // An osClient is the operating system-specific implementation of Client.

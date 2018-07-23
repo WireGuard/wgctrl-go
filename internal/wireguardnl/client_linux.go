@@ -12,8 +12,8 @@ import (
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
+	"github.com/mdlayher/wireguardctrl/internal/wireguardnl/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
-	"github.com/mdlayher/wireguardctrl/wireguardnl/internal/wgh"
 	"golang.org/x/sys/unix"
 )
 
