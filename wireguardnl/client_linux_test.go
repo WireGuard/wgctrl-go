@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
+	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"github.com/mdlayher/wireguardctrl/wireguardnl/internal/wgh"
 	"golang.org/x/sys/unix"
 
@@ -144,14 +145,14 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 		testName  = "wg1"
 	)
 
-	var testKey Key
+	var testKey wgtypes.Key
 	testKey[0] = 0xff
 
 	tests := []struct {
 		name       string
 		interfaces func() ([]net.Interface, error)
 		msgs       [][]genetlink.Message
-		devices    []*Device
+		devices    []*wgtypes.Device
 	}{
 		{
 			name: "basic",
@@ -193,7 +194,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 					}),
 				}},
 			},
-			devices: []*Device{
+			devices: []*wgtypes.Device{
 				{
 					Index: okIndex,
 					Name:  okName,
@@ -340,7 +341,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 					},
 				}),
 			}}},
-			devices: []*Device{
+			devices: []*wgtypes.Device{
 				{
 					Index:        okIndex,
 					Name:         okName,
@@ -348,7 +349,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 					PublicKey:    testKey,
 					ListenPort:   5555,
 					FirewallMark: 0xff,
-					Peers: []Peer{
+					Peers: []wgtypes.Peer{
 						{
 							PublicKey:    testKey,
 							PresharedKey: testKey,

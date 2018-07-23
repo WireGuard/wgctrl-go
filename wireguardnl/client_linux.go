@@ -12,6 +12,7 @@ import (
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
+	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"github.com/mdlayher/wireguardctrl/wireguardnl/internal/wgh"
 	"golang.org/x/sys/unix"
 )
@@ -59,7 +60,7 @@ func (c *client) Close() error {
 }
 
 // Devices implements osClient.
-func (c *client) Devices() ([]*Device, error) {
+func (c *client) Devices() ([]*wgtypes.Device, error) {
 	// TODO(mdlayher): it doesn't seem possible to do a typical netlink dump
 	// of all WireGuard devices.  Perhaps consider raising this to the developers
 	// to solicit their feedback.
@@ -68,7 +69,7 @@ func (c *client) Devices() ([]*Device, error) {
 		return nil, err
 	}
 
-	var ds []*Device
+	var ds []*wgtypes.Device
 	for _, ifi := range ifis {
 		// Attempt to fetch device information.  If we receive a "not exist"
 		// error, the device must not be a WireGuard device.
@@ -88,18 +89,18 @@ func (c *client) Devices() ([]*Device, error) {
 }
 
 // DeviceByIndex implements osClient.
-func (c *client) DeviceByIndex(index int) (*Device, error) {
+func (c *client) DeviceByIndex(index int) (*wgtypes.Device, error) {
 	return c.getDevice(index, "")
 }
 
 // DeviceByName implements osClient.
-func (c *client) DeviceByName(name string) (*Device, error) {
+func (c *client) DeviceByName(name string) (*wgtypes.Device, error) {
 	return c.getDevice(0, name)
 }
 
 // getDevice fetches a Device using either its index or name, depending on which
 // is specified.  If both are specified, index is preferred.
-func (c *client) getDevice(index int, name string) (*Device, error) {
+func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {
 	// WireGuard netlink expects either interface index or name for all queries.
 	var attr netlink.Attribute
 	switch {
@@ -153,13 +154,13 @@ func (c *client) getDevice(index int, name string) (*Device, error) {
 }
 
 // parseDevice parses a Device from a generic netlink message.
-func parseDevice(m genetlink.Message) (*Device, error) {
+func parseDevice(m genetlink.Message) (*wgtypes.Device, error) {
 	attrs, err := netlink.UnmarshalAttributes(m.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	var d Device
+	var d wgtypes.Device
 	for _, a := range attrs {
 		switch a.Type {
 		case wgh.DeviceAIfindex:
@@ -167,9 +168,9 @@ func parseDevice(m genetlink.Message) (*Device, error) {
 		case wgh.DeviceAIfname:
 			d.Name = nlenc.String(a.Data)
 		case wgh.DeviceAPrivateKey:
-			d.PrivateKey = newKey(a.Data)
+			d.PrivateKey = wgtypes.NewKey(a.Data)
 		case wgh.DeviceAPublicKey:
-			d.PublicKey = newKey(a.Data)
+			d.PublicKey = wgtypes.NewKey(a.Data)
 		case wgh.DeviceAListenPort:
 			d.ListenPort = int(nlenc.Uint16(a.Data))
 		case wgh.DeviceAFwmark:
@@ -188,7 +189,7 @@ func parseDevice(m genetlink.Message) (*Device, error) {
 }
 
 // parsePeers parses a slice of Peers from a netlink attribute payload.
-func parsePeers(b []byte) ([]Peer, error) {
+func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 	attrs, err := netlink.UnmarshalAttributes(b)
 	if err != nil {
 		return nil, err
@@ -196,20 +197,20 @@ func parsePeers(b []byte) ([]Peer, error) {
 
 	// This is a netlink "array", so each attribute's data contains more
 	// nested attributes for a new Peer.
-	ps := make([]Peer, 0, len(attrs))
+	ps := make([]wgtypes.Peer, 0, len(attrs))
 	for _, a := range attrs {
 		nattrs, err := netlink.UnmarshalAttributes(a.Data)
 		if err != nil {
 			return nil, err
 		}
 
-		var p Peer
+		var p wgtypes.Peer
 		for _, na := range nattrs {
 			switch na.Type {
 			case wgh.PeerAPublicKey:
-				p.PublicKey = newKey(na.Data)
+				p.PublicKey = wgtypes.NewKey(na.Data)
 			case wgh.PeerAPresharedKey:
-				p.PresharedKey = newKey(na.Data)
+				p.PresharedKey = wgtypes.NewKey(na.Data)
 			case wgh.PeerAEndpoint:
 				p.Endpoint = parseSockaddr(na.Data)
 			case wgh.PeerAPersistentKeepaliveInterval:

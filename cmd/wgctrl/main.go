@@ -1,18 +1,18 @@
-// Command wgnlctl is a testing utility for interacting with WireGuard generic
-// netlink via package wireguardnl.
+// Command wgctrl is a testing utility for interacting with WireGuard via package
+// wireguardctrl.
 package main
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/mdlayher/wireguardctrl/wireguardnl"
+	"github.com/mdlayher/wireguardctrl"
 )
 
 func main() {
-	c, err := wireguardnl.New()
+	c, err := wireguardctrl.New()
 	if err != nil {
-		log.Fatalf("failed to open wireguardnl: %v", err)
+		log.Fatalf("failed to open wireguardctrl: %v", err)
 	}
 	defer c.Close()
 
@@ -30,7 +30,7 @@ func main() {
 	}
 }
 
-func printDevice(d *wireguardnl.Device) {
+func printDevice(d *wireguardctrl.Device) {
 	const f = `interface: %s
   public key: %s
   private key: (hidden)
@@ -45,7 +45,7 @@ func printDevice(d *wireguardnl.Device) {
 		d.ListenPort)
 }
 
-func printPeer(p wireguardnl.Peer) {
+func printPeer(p wireguardctrl.Peer) {
 	const f = `peer: %s
   endpoint: %s
   allowed ips: %s
