@@ -1,11 +1,11 @@
 package wireguardctrl
 
 import (
-	"errors"
 	"io"
 	"runtime"
 
 	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"github.com/mdlayher/wireguardctrl/wireguardcfg"
 	"github.com/mdlayher/wireguardctrl/wireguardnl"
 )
 
@@ -53,11 +53,12 @@ func New() (*Client, error) {
 // newClient creates a wgClient based on the current operating system and
 // configuration.
 func newClient() (wgClient, error) {
+	// TODO(mdlayher): smarter detection logic than just the OS in use.
 	switch runtime.GOOS {
 	case "linux":
 		return wireguardnl.New()
 	default:
-		return nil, errors.New("wireguardctrl: userspace configuration protocol not yet implemented")
+		return wireguardcfg.New()
 	}
 }
 
