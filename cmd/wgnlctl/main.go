@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mdlayher/wireguard/wireguardnl"
+	"github.com/mdlayher/wireguardctrl/wireguardnl"
 )
 
 func main() {
