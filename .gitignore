@@ -1,1 +1,2 @@
 cmd/wgnlctl/wgnlctl
+*.test

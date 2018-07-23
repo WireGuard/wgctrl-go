@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/mdlayher/wireguardnl"
+	"github.com/mdlayher/wireguard/wireguardnl"
 )
 
 func TestLinuxClientIntegration(t *testing.T) {
