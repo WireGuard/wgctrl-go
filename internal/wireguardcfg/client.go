@@ -113,8 +113,3 @@ func findSocketFiles(dirs []string) ([]string, error) {
 
 	return socks, nil
 }
-
-// getDevice retrieves a Device using its socket file.
-func getDevice(path string) (*wgtypes.Device, error) {
-	return nil, nil
-}
