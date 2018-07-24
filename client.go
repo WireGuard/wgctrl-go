@@ -2,6 +2,7 @@ package wireguardctrl
 
 import (
 	"io"
+	"os"
 	"runtime"
 
 	"github.com/mdlayher/wireguardctrl/internal/wireguardcfg"
@@ -33,43 +34,74 @@ type (
 // Expose an identical interface to the underlying packages.
 var _ wgClient = &Client{}
 
-// A Client provides access to Linux WireGuard netlink information.
+// A Client provides access to WireGuard device information.
 type Client struct {
-	c wgClient
+	// Seamlessly use different wgClient implementations to provide an interface
+	// similar to the wg(8).
+	cs []wgClient
 }
 
 // New creates a new Client.
 func New() (*Client, error) {
-	c, err := newClient()
+	cs, err := newClients()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		c: c,
+		cs: cs,
 	}, nil
 }
 
-// newClient creates a wgClient based on the current operating system and
-// configuration.
-func newClient() (wgClient, error) {
+// newClients sets up various wgClients based on the current operating system
+// and configuration.
+func newClients() ([]wgClient, error) {
+	var cs []wgClient
 	// TODO(mdlayher): smarter detection logic than just the OS in use.
-	switch runtime.GOOS {
-	case "linux":
-		return wireguardnl.New()
-	default:
-		return wireguardcfg.New()
+	if runtime.GOOS == "linux" {
+		nlc, err := wireguardnl.New()
+		if err != nil {
+			return nil, err
+		}
+
+		// Netlink devices seem to appear first in wg(8).
+		cs = append(cs, nlc)
 	}
+
+	cfgc, err := wireguardcfg.New()
+	if err != nil {
+		return nil, err
+	}
+
+	cs = append(cs, cfgc)
+
+	return cs, nil
 }
 
 // Close releases resources used by a Client.
 func (c *Client) Close() error {
-	return c.c.Close()
+	for _, wgc := range c.cs {
+		if err := wgc.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Devices retrieves all WireGuard devices on this system.
 func (c *Client) Devices() ([]*Device, error) {
-	return c.c.Devices()
+	var out []*Device
+	for _, wgc := range c.cs {
+		devs, err := wgc.Devices()
+		if err != nil {
+			return nil, err
+		}
+
+		out = append(out, devs...)
+	}
+
+	return out, nil
 }
 
 // DeviceByIndex retrieves a WireGuard device by its interface index.
@@ -77,7 +109,19 @@ func (c *Client) Devices() ([]*Device, error) {
 // If the device specified by index does not exist or is not a WireGuard device,
 // an error is returned which can be checked using os.IsNotExist.
 func (c *Client) DeviceByIndex(index int) (*Device, error) {
-	return c.c.DeviceByIndex(index)
+	for _, wgc := range c.cs {
+		d, err := wgc.DeviceByIndex(index)
+		switch {
+		case err == nil:
+			return d, nil
+		case os.IsNotExist(err):
+			continue
+		default:
+			return nil, err
+		}
+	}
+
+	return nil, os.ErrNotExist
 }
 
 // DeviceByName retrieves a WireGuard device by its interface name.
@@ -85,5 +129,17 @@ func (c *Client) DeviceByIndex(index int) (*Device, error) {
 // If the device specified by name does not exist or is not a WireGuard device,
 // an error is returned which can be checked using os.IsNotExist.
 func (c *Client) DeviceByName(name string) (*Device, error) {
-	return c.c.DeviceByName(name)
+	for _, wgc := range c.cs {
+		d, err := wgc.DeviceByName(name)
+		switch {
+		case err == nil:
+			return d, nil
+		case os.IsNotExist(err):
+			continue
+		default:
+			return nil, err
+		}
+	}
+
+	return nil, os.ErrNotExist
 }
