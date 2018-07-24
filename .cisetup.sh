@@ -1,0 +1,34 @@
+#!/bin/bash
+set -x
+
+# !! This script is meant for use in Travis CI only !!
+
+WGUSERDEV="wggo0"
+
+KERNEL=$(uname -s)
+if [ "$KERNEL" == "Linux" ]; then
+    # Set up the WireGuard kernel module on Linux.
+    sudo add-apt-repository -y ppa:wireguard/wireguard
+    sudo apt-get -y update
+    sudo apt-get -y install linux-headers-$(uname -r) wireguard-dkms wireguard-tools
+
+    # Configure a WireGuard interface.
+    sudo ip link add wg0 type wireguard
+    sudo ip link set up wg0
+
+    # Also allow the use of wireguard-go for additional testing.
+    export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
+else
+    # Mac wants devices named "utun0-9".
+    WGUSERDEV="utun9"
+fi
+
+# Set up and run wireguard-go on all OSes.
+mkdir bin/
+git clone git://git.zx2c4.com/wireguard-go
+cd wireguard-go
+make
+sudo mv ./wireguard-go ../bin/wireguard-go
+cd ..
+sudo rm -rf ./wireguard-go
+sudo ./bin/wireguard-go ${WGUSERDEV}

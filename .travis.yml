@@ -3,13 +3,10 @@ go:
   - "1.x"
 os:
   - linux
+  - osx
 sudo: required
 before_install:
-  - sudo add-apt-repository -y ppa:wireguard/wireguard
-  - sudo apt-get -y update
-  - sudo apt-get -y install linux-headers-$(uname -r) wireguard-dkms wireguard-tools
-  - sudo ip link add wg0 type wireguard
-  - sudo ip link set up wg0
+  - ./.cisetup.sh
   - go get github.com/golang/lint/golint
   - go get honnef.co/go/tools/cmd/staticcheck
   - go get -d ./...
