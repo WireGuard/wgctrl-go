@@ -1,2 +1,2 @@
-cmd/wgnlctl/wgnlctl
+cmd/wgctrl/wgctrl
 *.test
