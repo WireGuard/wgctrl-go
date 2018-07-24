@@ -20,8 +20,9 @@ func New() (*Client, error) {
 	return &Client{
 		findSockets: func() ([]string, error) {
 			return findSocketFiles([]string{
-				// TODO(mdlayher): deal with /var/run symlink?
-				"/run/wireguard",
+				// It seems that /var/run is a common location between Linux
+				// and the BSDs, even though it's a symlink on Linux.
+				"/var/run/wireguard",
 			})
 		},
 	}, nil
