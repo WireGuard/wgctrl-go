@@ -195,7 +195,7 @@ func Test_findSocketFiles(t *testing.T) {
 
 	files, err := findSocketFiles([]string{
 		tmp,
-		// Should gracefully handle non-existant directories and files.
+		// Should gracefully handle non-existent directories and files.
 		filepath.Join(tmp, "foo"),
 		"/not/exist",
 	})
