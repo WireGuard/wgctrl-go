@@ -26,14 +26,24 @@ const keyLen = 32 // wgh.KeyLen
 type Key [keyLen]byte
 
 // NewKey creates a Key from a byte slice.  The byte slice must be exactly
-// 32 bytes in length or NewKey will panic.
-func NewKey(b []byte) Key {
+// 32 bytes in length.
+func NewKey(b []byte) (Key, error) {
 	if len(b) != keyLen {
-		panic(fmt.Sprintf("wireguardnl: incorrect key size: %d", len(b)))
+		return Key{}, fmt.Errorf("wireguardnl: incorrect key size: %d", len(b))
 	}
 
 	var k Key
 	copy(k[:], b)
+
+	return k, nil
+}
+
+// MustKey calls NewKey, but panics if an error occurs.
+func MustKey(b []byte) Key {
+	k, err := NewKey(b)
+	if err != nil {
+		panic(err)
+	}
 
 	return k
 }

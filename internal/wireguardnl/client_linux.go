@@ -168,9 +168,9 @@ func parseDevice(m genetlink.Message) (*wgtypes.Device, error) {
 		case wgh.DeviceAIfname:
 			d.Name = nlenc.String(a.Data)
 		case wgh.DeviceAPrivateKey:
-			d.PrivateKey = wgtypes.NewKey(a.Data)
+			d.PrivateKey = wgtypes.MustKey(a.Data)
 		case wgh.DeviceAPublicKey:
-			d.PublicKey = wgtypes.NewKey(a.Data)
+			d.PublicKey = wgtypes.MustKey(a.Data)
 		case wgh.DeviceAListenPort:
 			d.ListenPort = int(nlenc.Uint16(a.Data))
 		case wgh.DeviceAFwmark:
@@ -208,9 +208,9 @@ func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 		for _, na := range nattrs {
 			switch na.Type {
 			case wgh.PeerAPublicKey:
-				p.PublicKey = wgtypes.NewKey(na.Data)
+				p.PublicKey = wgtypes.MustKey(na.Data)
 			case wgh.PeerAPresharedKey:
-				p.PresharedKey = wgtypes.NewKey(na.Data)
+				p.PresharedKey = wgtypes.MustKey(na.Data)
 			case wgh.PeerAEndpoint:
 				p.Endpoint = parseSockaddr(na.Data)
 			case wgh.PeerAPersistentKeepaliveInterval:
