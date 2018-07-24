@@ -11,7 +11,6 @@ import (
 
 // A Device is a WireGuard device.
 type Device struct {
-	Index        int
 	Name         string
 	PrivateKey   Key
 	PublicKey    Key

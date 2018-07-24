@@ -164,7 +164,8 @@ func parseDevice(m genetlink.Message) (*wgtypes.Device, error) {
 	for _, a := range attrs {
 		switch a.Type {
 		case wgh.DeviceAIfindex:
-			d.Index = int(nlenc.Uint32(a.Data))
+			// Ignored; interface index isn't exposed at all in the userspace
+			// configuration protocol, and name is more friendly anyway.
 		case wgh.DeviceAIfname:
 			d.Name = nlenc.String(a.Data)
 		case wgh.DeviceAPrivateKey:

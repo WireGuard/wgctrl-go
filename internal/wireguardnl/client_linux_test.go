@@ -196,12 +196,10 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 			},
 			devices: []*wgtypes.Device{
 				{
-					Index: okIndex,
-					Name:  okName,
+					Name: okName,
 				},
 				{
-					Index: 2,
-					Name:  "wg1",
+					Name: "wg1",
 				},
 			},
 		},
@@ -343,7 +341,6 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 			}}},
 			devices: []*wgtypes.Device{
 				{
-					Index:        okIndex,
 					Name:         okName,
 					PrivateKey:   testKey,
 					PublicKey:    testKey,
