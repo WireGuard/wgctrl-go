@@ -1,4 +1,4 @@
-package wireguardcfg
+package wguser
 
 import (
 	"fmt"

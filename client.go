@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/mdlayher/wireguardctrl/internal/wireguardcfg"
+	"github.com/mdlayher/wireguardctrl/internal/wguser"
 	"github.com/mdlayher/wireguardctrl/internal/wireguardnl"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
@@ -68,7 +68,7 @@ func newClients() ([]wgClient, error) {
 		cs = append(cs, nlc)
 	}
 
-	cfgc, err := wireguardcfg.New()
+	cfgc, err := wguser.New()
 	if err != nil {
 		return nil, err
 	}
