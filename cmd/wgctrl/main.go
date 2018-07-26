@@ -5,6 +5,8 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
+	"strings"
 
 	"github.com/mdlayher/wireguardctrl"
 )
@@ -59,10 +61,18 @@ func printPeer(p wireguardctrl.Peer) {
 		p.PublicKey.String(),
 		// TODO(mdlayher): get right endpoint with getnameinfo.
 		p.Endpoint.String(),
-		// TODO(mdlayher): iterate each address.
-		p.AllowedIPs[0].String(),
+		ipsString(p.AllowedIPs),
 		p.LastHandshakeTime.String(),
 		p.ReceiveBytes,
 		p.TransmitBytes,
 	)
+}
+
+func ipsString(ipns []net.IPNet) string {
+	ss := make([]string, 0, len(ipns))
+	for _, ipn := range ipns {
+		ss = append(ss, ipn.String())
+	}
+
+	return strings.Join(ss, ", ")
 }
