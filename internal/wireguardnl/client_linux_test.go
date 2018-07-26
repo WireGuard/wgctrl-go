@@ -134,6 +134,97 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 	}
 }
 
+func TestLinuxClientDevicesError(t *testing.T) {
+	tests := []struct {
+		name string
+		msgs []genetlink.Message
+	}{
+		{
+			name: "multiple messages",
+			msgs: []genetlink.Message{
+				{}, {},
+			},
+		},
+		{
+			name: "bad peer endpoint",
+			msgs: []genetlink.Message{{
+				Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+					Type: wgh.DeviceAPeers,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+						Type: 0,
+						Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							{
+								Type: wgh.PeerAEndpoint,
+								Data: []byte{0xff},
+							},
+						}),
+					}}),
+				}}),
+			}},
+		},
+		{
+			name: "bad peer last handshake time",
+			msgs: []genetlink.Message{{
+				Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+					Type: wgh.DeviceAPeers,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+						Type: 0,
+						Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							{
+								Type: wgh.PeerALastHandshakeTime,
+								Data: []byte{0xff},
+							},
+						}),
+					}}),
+				}}),
+			}},
+		},
+		{
+			name: "bad peer allowed IPs IP",
+			msgs: []genetlink.Message{{
+				Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+					Type: wgh.DeviceAPeers,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+						Type: 0,
+						Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							{
+								Type: wgh.PeerAAllowedips,
+								Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+									Type: 0,
+									Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+										Type: wgh.AllowedipAIpaddr,
+										Data: []byte{0xff},
+									}}),
+								}}),
+							},
+						}),
+					}}),
+				}}),
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := testClient(t, func(_ genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {
+				return tt.msgs, nil
+			})
+			defer c.Close()
+
+			c.interfaces = func() ([]net.Interface, error) {
+				return []net.Interface{{
+					Index: okIndex,
+					Name:  okName,
+				}}, nil
+			}
+
+			if _, err := c.Devices(); err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+		})
+	}
+}
+
 const (
 	okIndex = 1
 	okName  = "wg0"

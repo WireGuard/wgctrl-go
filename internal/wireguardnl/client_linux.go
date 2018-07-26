@@ -155,35 +155,42 @@ func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {
 
 // parseDevice parses a Device from a generic netlink message.
 func parseDevice(m genetlink.Message) (*wgtypes.Device, error) {
-	attrs, err := netlink.UnmarshalAttributes(m.Data)
+	ad, err := netlink.NewAttributeDecoder(m.Data)
 	if err != nil {
 		return nil, err
 	}
 
 	var d wgtypes.Device
-	for _, a := range attrs {
-		switch a.Type {
+	for ad.Next() {
+		switch ad.Type() {
 		case wgh.DeviceAIfindex:
 			// Ignored; interface index isn't exposed at all in the userspace
 			// configuration protocol, and name is more friendly anyway.
 		case wgh.DeviceAIfname:
-			d.Name = nlenc.String(a.Data)
+			d.Name = ad.String()
 		case wgh.DeviceAPrivateKey:
-			d.PrivateKey = wgtypes.MustKey(a.Data)
+			ad.Do(parseKey(&d.PrivateKey))
 		case wgh.DeviceAPublicKey:
-			d.PublicKey = wgtypes.MustKey(a.Data)
+			ad.Do(parseKey(&d.PublicKey))
 		case wgh.DeviceAListenPort:
-			d.ListenPort = int(nlenc.Uint16(a.Data))
+			d.ListenPort = int(ad.Uint16())
 		case wgh.DeviceAFwmark:
-			d.FirewallMark = int(nlenc.Uint32(a.Data))
+			d.FirewallMark = int(ad.Uint32())
 		case wgh.DeviceAPeers:
-			peers, err := parsePeers(a.Data)
-			if err != nil {
-				return nil, err
-			}
+			ad.Do(func(b []byte) error {
+				peers, err := parsePeers(b)
+				if err != nil {
+					return err
+				}
 
-			d.Peers = peers
+				d.Peers = peers
+				return nil
+			})
 		}
+	}
+
+	if err := ad.Err(); err != nil {
+		return nil, err
 	}
 
 	return &d, nil
@@ -200,90 +207,51 @@ func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 	// nested attributes for a new Peer.
 	ps := make([]wgtypes.Peer, 0, len(attrs))
 	for _, a := range attrs {
-		nattrs, err := netlink.UnmarshalAttributes(a.Data)
+		ad, err := netlink.NewAttributeDecoder(a.Data)
 		if err != nil {
 			return nil, err
 		}
 
 		var p wgtypes.Peer
-		for _, na := range nattrs {
-			switch na.Type {
+		for ad.Next() {
+			switch ad.Type() {
 			case wgh.PeerAPublicKey:
-				p.PublicKey = wgtypes.MustKey(na.Data)
+				ad.Do(parseKey(&p.PublicKey))
 			case wgh.PeerAPresharedKey:
-				p.PresharedKey = wgtypes.MustKey(na.Data)
+				ad.Do(parseKey(&p.PresharedKey))
 			case wgh.PeerAEndpoint:
-				p.Endpoint = parseSockaddr(na.Data)
+				p.Endpoint = &net.UDPAddr{}
+				ad.Do(parseSockaddr(p.Endpoint))
 			case wgh.PeerAPersistentKeepaliveInterval:
 				// TODO(mdlayher): is this actually in seconds?
-				p.PersistentKeepaliveInterval = time.Duration(nlenc.Uint16(na.Data)) * time.Second
+				p.PersistentKeepaliveInterval = time.Duration(ad.Uint16()) * time.Second
 			case wgh.PeerALastHandshakeTime:
-				p.LastHandshakeTime = parseTimespec(na.Data)
+				ad.Do(parseTimespec(&p.LastHandshakeTime))
 			case wgh.PeerARxBytes:
-				p.ReceiveBytes = int(nlenc.Uint64(na.Data))
+				p.ReceiveBytes = int(ad.Uint64())
 			case wgh.PeerATxBytes:
-				p.TransmitBytes = int(nlenc.Uint64(na.Data))
+				p.TransmitBytes = int(ad.Uint64())
 			case wgh.PeerAAllowedips:
-				ipns, err := parseAllowedIPs(na.Data)
-				if err != nil {
-					return nil, err
-				}
+				ad.Do(func(b []byte) error {
+					ipns, err := parseAllowedIPs(b)
+					if err != nil {
+						return err
+					}
 
-				p.AllowedIPs = ipns
+					p.AllowedIPs = ipns
+					return nil
+				})
 			}
+		}
+
+		if err := ad.Err(); err != nil {
+			return nil, err
 		}
 
 		ps = append(ps, p)
 	}
 
 	return ps, nil
-}
-
-// parseAddr parses a net.IP from raw in_addr or in6_addr struct bytes.
-func parseAddr(b []byte) net.IP {
-	switch len(b) {
-	case net.IPv4len, net.IPv6len:
-		// Okay to convert directly to net.IP; memory layout is identical.
-		return net.IP(b)
-	default:
-		panic(fmt.Sprintf("wireguardnl: unexpected IP address size: %d", len(b)))
-	}
-}
-
-// parseSockaddr parses a *net.UDPAddr from raw sockaddr_in or sockaddr_in6 bytes.
-func parseSockaddr(b []byte) *net.UDPAddr {
-	switch len(b) {
-	case unix.SizeofSockaddrInet4:
-		// IPv4 address parsing.
-		sa := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&b[0]))
-
-		return &net.UDPAddr{
-			IP:   net.IP(sa.Addr[:]).To4(),
-			Port: int(sa.Port),
-		}
-	case unix.SizeofSockaddrInet6:
-		// IPv6 address parsing.
-		sa := *(*unix.RawSockaddrInet6)(unsafe.Pointer(&b[0]))
-
-		return &net.UDPAddr{
-			IP:   net.IP(sa.Addr[:]),
-			Port: int(sa.Port),
-		}
-	default:
-		panic(fmt.Sprintf("wireguardnl: unexpected sockaddr size: %d", len(b)))
-	}
-}
-
-const sizeofTimespec = int(unsafe.Sizeof(unix.Timespec{}))
-
-// parseTimespec parses a time.Time from raw timespec bytes.
-func parseTimespec(b []byte) time.Time {
-	if len(b) != sizeofTimespec {
-		panic(fmt.Sprintf("wireguardnl: unexpected timespec size: %d", len(b)))
-	}
-
-	ts := *(*unix.Timespec)(unsafe.Pointer(&b[0]))
-	return time.Unix(ts.Sec, ts.Nsec)
 }
 
 // parseAllowedIPs parses a slice of net.IPNet from a netlink attribute payload.
@@ -297,7 +265,7 @@ func parseAllowedIPs(b []byte) ([]net.IPNet, error) {
 	// nested attributes for a new net.IPNet.
 	ipns := make([]net.IPNet, 0, len(attrs))
 	for _, a := range attrs {
-		nattrs, err := netlink.UnmarshalAttributes(a.Data)
+		ad, err := netlink.NewAttributeDecoder(a.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -308,15 +276,19 @@ func parseAllowedIPs(b []byte) ([]net.IPNet, error) {
 			family int
 		)
 
-		for _, na := range nattrs {
-			switch na.Type {
+		for ad.Next() {
+			switch ad.Type() {
 			case wgh.AllowedipAIpaddr:
-				ipn.IP = parseAddr(na.Data)
+				ad.Do(parseAddr(&ipn.IP))
 			case wgh.AllowedipACidrMask:
-				mask = int(nlenc.Uint8(na.Data))
+				mask = int(ad.Uint8())
 			case wgh.AllowedipAFamily:
-				family = int(nlenc.Uint16(na.Data))
+				family = int(ad.Uint16())
 			}
+		}
+
+		if err := ad.Err(); err != nil {
+			return nil, err
 		}
 
 		// The address family determines the correct number of bits in the mask.
@@ -331,4 +303,77 @@ func parseAllowedIPs(b []byte) ([]net.IPNet, error) {
 	}
 
 	return ipns, nil
+}
+
+// parseKey parses a wgtypes.Key from a byte slice.
+func parseKey(key *wgtypes.Key) func(b []byte) error {
+	return func(b []byte) error {
+		k, err := wgtypes.NewKey(b)
+		if err != nil {
+			return err
+		}
+
+		*key = k
+		return nil
+	}
+}
+
+// parseAddr parses a net.IP from raw in_addr or in6_addr struct bytes.
+func parseAddr(ip *net.IP) func(b []byte) error {
+	return func(b []byte) error {
+		switch len(b) {
+		case net.IPv4len, net.IPv6len:
+			// Okay to convert directly to net.IP; memory layout is identical.
+			*ip = make(net.IP, len(b))
+			copy(*ip, b)
+			return nil
+		default:
+			return fmt.Errorf("wireguardnl: unexpected IP address size: %d", len(b))
+		}
+	}
+}
+
+// parseSockaddr parses a *net.UDPAddr from raw sockaddr_in or sockaddr_in6 bytes.
+func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
+	return func(b []byte) error {
+		switch len(b) {
+		case unix.SizeofSockaddrInet4:
+			// IPv4 address parsing.
+			sa := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&b[0]))
+
+			*endpoint = net.UDPAddr{
+				IP:   net.IP(sa.Addr[:]).To4(),
+				Port: int(sa.Port),
+			}
+
+			return nil
+		case unix.SizeofSockaddrInet6:
+			// IPv6 address parsing.
+			sa := *(*unix.RawSockaddrInet6)(unsafe.Pointer(&b[0]))
+
+			*endpoint = net.UDPAddr{
+				IP:   net.IP(sa.Addr[:]),
+				Port: int(sa.Port),
+			}
+
+			return nil
+		default:
+			return fmt.Errorf("wireguardnl: unexpected sockaddr size: %d", len(b))
+		}
+	}
+}
+
+const sizeofTimespec = int(unsafe.Sizeof(unix.Timespec{}))
+
+// parseTimespec parses a time.Time from raw timespec bytes.
+func parseTimespec(t *time.Time) func(b []byte) error {
+	return func(b []byte) error {
+		if len(b) != sizeofTimespec {
+			return fmt.Errorf("wireguardnl: unexpected timespec size: %d", len(b))
+		}
+
+		ts := *(*unix.Timespec)(unsafe.Pointer(&b[0]))
+		*t = time.Unix(ts.Sec, ts.Nsec)
+		return nil
+	}
 }
