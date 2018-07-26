@@ -1,6 +1,6 @@
 //+build !linux
 
-package wireguardnl
+package wgnl
 
 import (
 	"fmt"
