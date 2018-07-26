@@ -1,4 +1,4 @@
-package wireguardnl
+package wgnl
 
 import (
 	"io"
