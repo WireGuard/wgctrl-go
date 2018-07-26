@@ -37,16 +37,6 @@ func NewKey(b []byte) (Key, error) {
 	return k, nil
 }
 
-// MustKey calls NewKey, but panics if an error occurs.
-func MustKey(b []byte) Key {
-	k, err := NewKey(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return k
-}
-
 // String returns the base64 string representation of a Key.
 func (k Key) String() string {
 	return base64.StdEncoding.EncodeToString(k[:])
