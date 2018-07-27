@@ -3,7 +3,6 @@
 package wgnl
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -488,7 +487,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				return tt.msgs[i], nil
 			}
 
-			c := testClient(t, checkRequest(cmd, flags, fn))
+			c := testClient(t, genltest.CheckRequest(familyID, cmd, flags, fn))
 			defer c.Close()
 
 			// Replace interfaces if necessary.
@@ -508,23 +507,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 	}
 }
 
-func checkRequest(command uint8, flags netlink.HeaderFlags, fn genltest.Func) genltest.Func {
-	return func(greq genetlink.Message, nreq netlink.Message) ([]genetlink.Message, error) {
-		if want, got := command, greq.Header.Command; command != 0 && want != got {
-			return nil, fmt.Errorf("unexpected generic netlink header command: %d, want: %d", got, want)
-		}
-
-		if want, got := flags, nreq.Header.Flags; flags != 0 && want != got {
-			return nil, fmt.Errorf("unexpected netlink header flags: %s, want: %s", got, want)
-		}
-
-		return fn(greq, nreq)
-	}
-}
+const familyID = 20
 
 func testClient(t *testing.T, fn genltest.Func) *client {
 	family := genetlink.Family{
-		ID:      20,
+		ID:      familyID,
 		Version: wgh.GenlVersion,
 		Name:    wgh.GenlName,
 	}
