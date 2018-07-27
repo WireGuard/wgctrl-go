@@ -146,15 +146,38 @@ func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {
 		}
 	}
 
-	if len(msgs) != 1 {
-		return nil, fmt.Errorf("wireguardnl: unexpected number of response messages: %d", len(msgs))
-	}
-
-	return parseDevice(msgs[0])
+	return parseDevice(msgs)
 }
 
-// parseDevice parses a Device from a generic netlink message.
-func parseDevice(m genetlink.Message) (*wgtypes.Device, error) {
+// parseDevice parses a Device from a slice of generic netlink messages,
+// automatically merging peer lists from subsequent messages into the Device
+// from the first message.
+func parseDevice(msgs []genetlink.Message) (*wgtypes.Device, error) {
+	var first wgtypes.Device
+	for i, m := range msgs {
+		d, err := parseDeviceLoop(m)
+		if err != nil {
+			return nil, err
+		}
+
+		if i == 0 {
+			// First message contains our target device.
+			first = *d
+			continue
+		}
+
+		// Any subsequent messages have their peer contents merged into the
+		// first "target" message.
+		if err := mergeDevices(&first, d); err != nil {
+			return nil, err
+		}
+	}
+
+	return &first, nil
+}
+
+// parseDeviceLoop parses a Device from a single generic netlink message.
+func parseDeviceLoop(m genetlink.Message) (*wgtypes.Device, error) {
 	ad, err := netlink.NewAttributeDecoder(m.Data)
 	if err != nil {
 		return nil, err
@@ -376,4 +399,50 @@ func parseTimespec(t *time.Time) func(b []byte) error {
 		*t = time.Unix(ts.Sec, ts.Nsec)
 		return nil
 	}
+}
+
+// mergeDevices merges Peer information from d into target.  mergeDevices is
+// used to deal with multiple incoming netlink messages for the same device.
+func mergeDevices(target, d *wgtypes.Device) error {
+	// Peers we are aware already exist in target.
+	known := make(map[wgtypes.Key]struct{})
+	for _, p := range target.Peers {
+		known[p.PublicKey] = struct{}{}
+	}
+
+	// Peers which will be added to target if new peers are discovered.
+	var peers []wgtypes.Peer
+
+	for j := range target.Peers {
+		// Allowed IPs that will be added to target for matching peers.
+		var ipns []net.IPNet
+
+		for k := range d.Peers {
+			// Does this peer match the current peer?  If so, append its allowed
+			// IP networks.
+			if target.Peers[j].PublicKey == d.Peers[k].PublicKey {
+				ipns = append(ipns, d.Peers[k].AllowedIPs...)
+				continue
+			}
+
+			// Are we already aware of this peer's existence?  If so, nothing to
+			// do here.
+			if _, ok := known[d.Peers[k].PublicKey]; ok {
+				continue
+			}
+
+			// Found a new peer, append it to the output list and mark it as
+			// known for future loops.
+			peers = append(peers, d.Peers[k])
+			known[d.Peers[k].PublicKey] = struct{}{}
+		}
+
+		// Add any newly-encountered IPs for this peer.
+		target.Peers[j].AllowedIPs = append(target.Peers[j].AllowedIPs, ipns...)
+	}
+
+	// Add any newly-encountered peers for this device.
+	target.Peers = append(target.Peers, peers...)
+
+	return nil
 }

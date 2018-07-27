@@ -3,6 +3,8 @@
 package wgnl
 
 import (
+	"crypto/rand"
+	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -139,12 +141,6 @@ func TestLinuxClientDevicesError(t *testing.T) {
 		msgs []genetlink.Message
 	}{
 		{
-			name: "multiple messages",
-			msgs: []genetlink.Message{
-				{}, {},
-			},
-		},
-		{
 			name: "bad peer endpoint",
 			msgs: []genetlink.Message{{
 				Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
@@ -229,13 +225,37 @@ const (
 	okName  = "wg0"
 )
 
+func mustKey() wgtypes.Key {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panicf("failed to read random bytes: %v", err)
+	}
+
+	key, err := wgtypes.NewKey(b)
+	if err != nil {
+		panicf("failed to create key: %v", err)
+	}
+
+	return key
+}
+
+func panicf(format string, a ...interface{}) {
+	panic(fmt.Sprintf(format, a...))
+}
+
 func TestLinuxClientDevicesOK(t *testing.T) {
 	const (
 		testIndex = 2
 		testName  = "wg1"
 	)
 
-	var testKey wgtypes.Key
+	var (
+		testKey wgtypes.Key
+		keyA    = mustKey()
+		keyB    = mustKey()
+		keyC    = mustKey()
+	)
+
 	testKey[0] = 0xff
 
 	tests := []struct {
@@ -363,41 +383,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: wgh.PeerAAllowedips,
-										Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-											{
-												Type: 0,
-												Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-													{
-														Type: wgh.AllowedipAIpaddr,
-														Data: net.IPv4(192, 168, 1, 10).To4(),
-													},
-													{
-														Type: wgh.AllowedipACidrMask,
-														Data: nlenc.Uint8Bytes(32),
-													},
-													{
-														Type: wgh.AllowedipAFamily,
-														Data: nlenc.Uint16Bytes(unix.AF_INET),
-													},
-												}),
-											},
-											{
-												Type: 1,
-												Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-													{
-														Type: wgh.AllowedipAIpaddr,
-														Data: net.ParseIP("fd00::1"),
-													},
-													{
-														Type: wgh.AllowedipACidrMask,
-														Data: nlenc.Uint8Bytes(64),
-													},
-													{
-														Type: wgh.AllowedipAFamily,
-														Data: nlenc.Uint16Bytes(unix.AF_INET6),
-													},
-												}),
-											},
+										Data: mustAllowedIPs([]net.IPNet{
+											mustCIDR("192.168.1.10/32"),
+											mustCIDR("fd00::1/128"),
 										}),
 									},
 								}),
@@ -449,14 +437,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 							ReceiveBytes:                100,
 							TransmitBytes:               200,
 							AllowedIPs: []net.IPNet{
-								{
-									IP:   net.IPv4(192, 168, 1, 10),
-									Mask: net.CIDRMask(32, 32),
-								},
-								{
-									IP:   net.ParseIP("fd00::1"),
-									Mask: net.CIDRMask(64, 128),
-								},
+								mustCIDR("192.168.1.10/32"),
+								mustCIDR("fd00::1/128"),
 							},
 						},
 						{
@@ -470,7 +452,165 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "merge devices",
+			msgs: [][]genetlink.Message{{
+				// The "target" device.
+				{
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.DeviceAIfname,
+							Data: nlenc.Bytes(okName),
+						},
+						{
+							Type: wgh.DeviceAPrivateKey,
+							Data: testKey[:],
+						},
+						{
+							Type: wgh.DeviceAPeers,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: 0,
+									Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+										{
+											Type: wgh.PeerAPublicKey,
+											Data: keyA[:],
+										},
+										{
+											Type: wgh.PeerAAllowedips,
+											Data: mustAllowedIPs([]net.IPNet{
+												mustCIDR("192.168.1.10/32"),
+												mustCIDR("192.168.1.11/32"),
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+				// Continuation of first peer list, new peer list.
+				{
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.DeviceAPeers,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: 0,
+									Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+										{
+											Type: wgh.PeerAPublicKey,
+											Data: keyA[:],
+										},
+										{
+											Type: wgh.PeerAAllowedips,
+											Data: mustAllowedIPs([]net.IPNet{
+												mustCIDR("fd00:dead:beef:dead::/64"),
+												mustCIDR("fd00:dead:beef:ffff::/64"),
+											}),
+										},
+									}),
+								},
+								{
+									Type: 1,
+									Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+										{
+											Type: wgh.PeerAPublicKey,
+											Data: keyB[:],
+										},
+										{
+											Type: wgh.PeerAAllowedips,
+											Data: mustAllowedIPs([]net.IPNet{
+												mustCIDR("10.10.10.0/24"),
+												mustCIDR("10.10.11.0/24"),
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+				// Continuation of prevoius peer list, new peer list.
+				{
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.DeviceAPeers,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: 0,
+									Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+										{
+											Type: wgh.PeerAPublicKey,
+											Data: keyB[:],
+										},
+										{
+											Type: wgh.PeerAAllowedips,
+											Data: mustAllowedIPs([]net.IPNet{
+												mustCIDR("10.10.12.0/24"),
+												mustCIDR("10.10.13.0/24"),
+											}),
+										},
+									}),
+								},
+								{
+									Type: 1,
+									Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+										{
+											Type: wgh.PeerAPublicKey,
+											Data: keyC[:],
+										},
+										{
+											Type: wgh.PeerAAllowedips,
+											Data: mustAllowedIPs([]net.IPNet{
+												mustCIDR("fd00:1234::/32"),
+												mustCIDR("fd00:4567::/32"),
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			}},
+			devices: []*wgtypes.Device{
+				{
+					Name:       okName,
+					PrivateKey: testKey,
+					Peers: []wgtypes.Peer{
+						{
+							PublicKey: keyA,
+							AllowedIPs: []net.IPNet{
+								mustCIDR("192.168.1.10/32"),
+								mustCIDR("192.168.1.11/32"),
+								mustCIDR("fd00:dead:beef:dead::/64"),
+								mustCIDR("fd00:dead:beef:ffff::/64"),
+							},
+						},
+						{
+							PublicKey: keyB,
+							AllowedIPs: []net.IPNet{
+								mustCIDR("10.10.10.0/24"),
+								mustCIDR("10.10.11.0/24"),
+								mustCIDR("10.10.12.0/24"),
+								mustCIDR("10.10.13.0/24"),
+							},
+						},
+						{
+							PublicKey: keyC,
+							AllowedIPs: []net.IPNet{
+								mustCIDR("fd00:1234::/32"),
+								mustCIDR("fd00:4567::/32"),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
+
+	_, _ = keyB, keyC
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -531,4 +671,52 @@ func testClient(t *testing.T, fn genltest.Func) *client {
 	}
 
 	return c
+}
+
+func mustCIDR(s string) net.IPNet {
+	_, cidr, err := net.ParseCIDR(s)
+	if err != nil {
+		panicf("failed to parse CIDR: %v", err)
+	}
+
+	return *cidr
+}
+
+func mustAllowedIPs(ipns []net.IPNet) []byte {
+	var attrs []netlink.Attribute
+	for i, ipn := range ipns {
+		var (
+			ip     = ipn.IP
+			family = uint16(unix.AF_INET6)
+		)
+
+		if ip4 := ip.To4(); ip4 != nil {
+			ip = ip4
+			family = unix.AF_INET
+		}
+
+		ones, _ := ipn.Mask.Size()
+
+		data := nltest.MustMarshalAttributes([]netlink.Attribute{
+			{
+				Type: wgh.AllowedipAIpaddr,
+				Data: ip,
+			},
+			{
+				Type: wgh.AllowedipACidrMask,
+				Data: nlenc.Uint8Bytes(uint8(ones)),
+			},
+			{
+				Type: wgh.AllowedipAFamily,
+				Data: nlenc.Uint16Bytes(family),
+			},
+		})
+
+		attrs = append(attrs, netlink.Attribute{
+			Type: uint16(i),
+			Data: data,
+		})
+	}
+
+	return nltest.MustMarshalAttributes(attrs)
 }
