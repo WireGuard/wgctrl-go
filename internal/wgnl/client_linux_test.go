@@ -3,7 +3,6 @@
 package wgnl
 
 import (
-	"crypto/rand"
 	"fmt"
 	"net"
 	"os"
@@ -12,15 +11,14 @@ import (
 	"unsafe"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mdlayher/genetlink"
+	"github.com/mdlayher/genetlink/genltest"
+	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
 	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
-
-	"github.com/mdlayher/genetlink"
-	"github.com/mdlayher/genetlink/genltest"
-	"github.com/mdlayher/netlink"
 )
 
 func TestLinuxClientDevicesEmpty(t *testing.T) {
@@ -225,24 +223,6 @@ const (
 	okName  = "wg0"
 )
 
-func mustKey() wgtypes.Key {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		panicf("failed to read random bytes: %v", err)
-	}
-
-	key, err := wgtypes.NewKey(b)
-	if err != nil {
-		panicf("failed to create key: %v", err)
-	}
-
-	return key
-}
-
-func panicf(format string, a ...interface{}) {
-	panic(fmt.Sprintf(format, a...))
-}
-
 func TestLinuxClientDevicesOK(t *testing.T) {
 	const (
 		testIndex = 2
@@ -251,9 +231,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 
 	var (
 		testKey wgtypes.Key
-		keyA    = mustKey()
-		keyB    = mustKey()
-		keyC    = mustKey()
+		keyA    = mustPublicKey()
+		keyB    = mustPublicKey()
+		keyC    = mustPublicKey()
 	)
 
 	testKey[0] = 0xff
@@ -610,8 +590,6 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 		},
 	}
 
-	_, _ = keyB, keyC
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			const (
@@ -719,4 +697,17 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 	}
 
 	return nltest.MustMarshalAttributes(attrs)
+}
+
+func mustPublicKey() wgtypes.Key {
+	priv, err := wgtypes.NewPrivateKey()
+	if err != nil {
+		panicf("failed to generate private key: %v", err)
+	}
+
+	return priv.PublicKey()
+}
+
+func panicf(format string, a ...interface{}) {
+	panic(fmt.Sprintf(format, a...))
 }

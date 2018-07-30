@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/mdlayher/wireguardctrl/wgtypes"
-	"golang.org/x/crypto/curve25519"
 )
 
 // The WireGuard userspace configuration protocol is described here:
@@ -88,7 +87,7 @@ func (dp *deviceParser) Device() (*wgtypes.Device, error) {
 	}
 
 	// Compute remaining fields of the Device now that all parsing is done.
-	dp.d.PublicKey = generatePublicKey(dp.d.PrivateKey)
+	dp.d.PublicKey = dp.d.PrivateKey.PublicKey()
 
 	return &dp.d, nil
 }
@@ -235,20 +234,4 @@ func (dp *deviceParser) parseCIDR(s string) *net.IPNet {
 	}
 
 	return cidr
-}
-
-// generatePublicKey computes a public key from a private key in the same way
-// as WireGuard.
-func generatePublicKey(priv wgtypes.Key) wgtypes.Key {
-	var (
-		pub    [32]byte
-		priv32 = [32]byte(priv)
-
-		// Magic number?
-		base = [32]byte{9}
-	)
-
-	curve25519.ScalarMult(&pub, &priv32, &base)
-
-	return wgtypes.Key(pub)
 }
