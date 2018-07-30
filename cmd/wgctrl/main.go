@@ -38,7 +38,7 @@ func printDevice(d *wireguardctrl.Device) {
   private key: (hidden)
   listening port: %d
 
-  `
+`
 
 	fmt.Printf(
 		f,
