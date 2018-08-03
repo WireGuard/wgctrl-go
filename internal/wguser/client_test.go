@@ -176,7 +176,7 @@ func TestClientDeviceByName(t *testing.T) {
 		name   string
 		device string
 		res    []byte
-		ok     bool
+		exists bool
 		d      *wgtypes.Device
 	}{
 		{
@@ -186,7 +186,7 @@ func TestClientDeviceByName(t *testing.T) {
 		{
 			name:   "ok",
 			device: "testwg0",
-			ok:     true,
+			exists: true,
 			d: &wgtypes.Device{
 				Name:      "testwg0",
 				PublicKey: wgtypes.Key{0x2f, 0xe5, 0x7d, 0xa3, 0x47, 0xcd, 0x62, 0x43, 0x15, 0x28, 0xda, 0xac, 0x5f, 0xbb, 0x29, 0x7, 0x30, 0xff, 0xf6, 0x84, 0xaf, 0xc4, 0xcf, 0xc2, 0xed, 0x90, 0x99, 0x5f, 0x58, 0xcb, 0x3b, 0x74},
@@ -200,15 +200,12 @@ func TestClientDeviceByName(t *testing.T) {
 			defer done()
 
 			dev, err := c.DeviceByName(tt.device)
-
-			if tt.ok && err != nil {
-				t.Fatalf("failed to get device: %v", err)
-			}
-			if !tt.ok && err == nil {
-				t.Fatal("expected an error, but none occurred")
-			}
 			if err != nil {
-				return
+				if !tt.exists && os.IsNotExist(err) {
+					return
+				}
+
+				t.Fatalf("failed to get device: %v", err)
 			}
 
 			if diff := cmp.Diff(tt.d, dev); diff != "" {
