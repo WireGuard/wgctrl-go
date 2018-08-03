@@ -12,6 +12,10 @@ var (
 	errFoo = errors.New("some error")
 
 	okDevice = &Device{Name: "wg0"}
+
+	cmpErrors = cmp.Comparer(func(x, y error) bool {
+		return x.Error() == y.Error()
+	})
 )
 
 func TestClientClose(t *testing.T) {
@@ -80,7 +84,7 @@ func TestClientDeviceByIndex(t *testing.T) {
 	tests := []struct {
 		name string
 		fns  []byIndexFunc
-		ok   bool
+		err  error
 	}{
 		{
 			name: "first error",
@@ -90,6 +94,7 @@ func TestClientDeviceByIndex(t *testing.T) {
 				},
 				willPanic,
 			},
+			err: errFoo,
 		},
 		{
 			name: "not found",
@@ -97,6 +102,7 @@ func TestClientDeviceByIndex(t *testing.T) {
 				notExist,
 				notExist,
 			},
+			err: os.ErrNotExist,
 		},
 		{
 			name: "first not found",
@@ -104,7 +110,6 @@ func TestClientDeviceByIndex(t *testing.T) {
 				notExist,
 				returnDevice,
 			},
-			ok: true,
 		},
 		{
 			name: "first ok",
@@ -112,7 +117,6 @@ func TestClientDeviceByIndex(t *testing.T) {
 				returnDevice,
 				willPanic,
 			},
-			ok: true,
 		},
 	}
 
@@ -129,11 +133,8 @@ func TestClientDeviceByIndex(t *testing.T) {
 
 			d, err := c.DeviceByIndex(0)
 
-			if tt.ok && err != nil {
-				t.Fatalf("failed to get device: %v", err)
-			}
-			if !tt.ok && err == nil {
-				t.Fatal("expected an error, but none occurred")
+			if diff := cmp.Diff(tt.err, err, cmpErrors); diff != "" {
+				t.Fatalf("unexpected error (-want +got):\n%s", diff)
 			}
 			if err != nil {
 				return
@@ -161,14 +162,12 @@ func TestClientDeviceByName(t *testing.T) {
 		returnDevice = func(_ string) (*Device, error) {
 			return okDevice, nil
 		}
-
-		errFoo = errors.New("some error")
 	)
 
 	tests := []struct {
 		name string
 		fns  []byNameFunc
-		ok   bool
+		err  error
 	}{
 		{
 			name: "first error",
@@ -178,6 +177,7 @@ func TestClientDeviceByName(t *testing.T) {
 				},
 				willPanic,
 			},
+			err: errFoo,
 		},
 		{
 			name: "not found",
@@ -185,6 +185,7 @@ func TestClientDeviceByName(t *testing.T) {
 				notExist,
 				notExist,
 			},
+			err: os.ErrNotExist,
 		},
 		{
 			name: "first not found",
@@ -192,7 +193,6 @@ func TestClientDeviceByName(t *testing.T) {
 				notExist,
 				returnDevice,
 			},
-			ok: true,
 		},
 		{
 			name: "first ok",
@@ -200,7 +200,6 @@ func TestClientDeviceByName(t *testing.T) {
 				returnDevice,
 				willPanic,
 			},
-			ok: true,
 		},
 	}
 
@@ -217,11 +216,8 @@ func TestClientDeviceByName(t *testing.T) {
 
 			d, err := c.DeviceByName("")
 
-			if tt.ok && err != nil {
-				t.Fatalf("failed to get device: %v", err)
-			}
-			if !tt.ok && err == nil {
-				t.Fatal("expected an error, but none occurred")
+			if diff := cmp.Diff(tt.err, err, cmpErrors); diff != "" {
+				t.Fatalf("unexpected error (-want +got):\n%s", diff)
 			}
 			if err != nil {
 				return
