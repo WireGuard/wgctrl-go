@@ -3,6 +3,7 @@ package wguser
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -168,6 +169,15 @@ func TestClientDevices(t *testing.T) {
 				t.Fatalf("unexpected Devices (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestClientDeviceByIndexIsNotExist(t *testing.T) {
+	c := &Client{}
+
+	// Hopefully there aren't this many interfaces on the test system.
+	if _, err := c.DeviceByIndex(int(math.MaxUint16)); !os.IsNotExist(err) {
+		t.Fatalf("expected is not exist, but got: %v", err)
 	}
 }
 

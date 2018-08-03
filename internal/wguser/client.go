@@ -58,6 +58,13 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 func (c *Client) DeviceByIndex(index int) (*wgtypes.Device, error) {
 	ifi, err := net.InterfaceByIndex(index)
 	if err != nil {
+		// Package net doesn't expose a nice way to check this, so we have to
+		// improvise just a little bit.
+		oerr, ok := err.(*net.OpError)
+		if ok && strings.Contains(oerr.Error(), "no such network interface") {
+			return nil, os.ErrNotExist
+		}
+
 		return nil, err
 	}
 
