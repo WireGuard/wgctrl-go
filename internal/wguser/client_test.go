@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -170,6 +171,53 @@ func TestClientDevices(t *testing.T) {
 	}
 }
 
+func TestClientDeviceByName(t *testing.T) {
+	tests := []struct {
+		name   string
+		device string
+		res    []byte
+		ok     bool
+		d      *wgtypes.Device
+	}{
+		{
+			name:   "not found",
+			device: "wg1",
+		},
+		{
+			name:   "ok",
+			device: "testwg0",
+			ok:     true,
+			d: &wgtypes.Device{
+				Name:      "testwg0",
+				PublicKey: wgtypes.Key{0x2f, 0xe5, 0x7d, 0xa3, 0x47, 0xcd, 0x62, 0x43, 0x15, 0x28, 0xda, 0xac, 0x5f, 0xbb, 0x29, 0x7, 0x30, 0xff, 0xf6, 0x84, 0xaf, 0xc4, 0xcf, 0xc2, 0xed, 0x90, 0x99, 0x5f, 0x58, 0xcb, 0x3b, 0x74},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, done := testClient(t, nil)
+			defer done()
+
+			dev, err := c.DeviceByName(tt.device)
+
+			if tt.ok && err != nil {
+				t.Fatalf("failed to get device: %v", err)
+			}
+			if !tt.ok && err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+			if err != nil {
+				return
+			}
+
+			if diff := cmp.Diff(tt.d, dev); diff != "" {
+				t.Fatalf("unexpected Device (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func Test_findSocketFiles(t *testing.T) {
 	tmp, err := ioutil.TempDir(os.TempDir(), "wireguardcfg-test")
 	if err != nil {
@@ -230,6 +278,10 @@ func testClient(t *testing.T, res []byte) (*Client, func()) {
 
 		c, err := l.Accept()
 		if err != nil {
+			if strings.Contains(err.Error(), "use of closed") {
+				return
+			}
+
 			panicf("failed to accept connection: %v", err)
 		}
 		defer c.Close()
