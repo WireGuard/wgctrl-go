@@ -22,8 +22,9 @@ var _ osClient = &client{}
 type client struct{}
 
 // newClient always returns an error.
-func newClient() (*client, error)                                { return nil, errUnimplemented }
-func (c *client) Close() error                                   { return errUnimplemented }
-func (c *client) Devices() ([]*wgtypes.Device, error)            { return nil, errUnimplemented }
-func (c *client) DeviceByIndex(_ int) (*wgtypes.Device, error)   { return nil, errUnimplemented }
-func (c *client) DeviceByName(_ string) (*wgtypes.Device, error) { return nil, errUnimplemented }
+func newClient() (*client, error)                                  { return nil, errUnimplemented }
+func (c *client) Close() error                                     { return errUnimplemented }
+func (c *client) Devices() ([]*wgtypes.Device, error)              { return nil, errUnimplemented }
+func (c *client) DeviceByIndex(_ int) (*wgtypes.Device, error)     { return nil, errUnimplemented }
+func (c *client) DeviceByName(_ string) (*wgtypes.Device, error)   { return nil, errUnimplemented }
+func (c *client) ConfigureDevice(_ string, _ wgtypes.Config) error { return errUnimplemented }

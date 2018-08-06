@@ -94,3 +94,16 @@ type Peer struct {
 	TransmitBytes               int
 	AllowedIPs                  []net.IPNet
 }
+
+// A Config is a WireGuard device configuration.
+//
+// Because the zero value of some Go types may be significant to WireGuard for
+// Config fields, only fields which are not nil will be applied when
+// configuring a device.
+type Config struct {
+	// PrivateKey specifies a private key configuration, if not nil.
+	//
+	// A non-nil Key will set a new private key.  A non-nil, zero-value, Key
+	// will clear the private key.
+	PrivateKey *Key
+}

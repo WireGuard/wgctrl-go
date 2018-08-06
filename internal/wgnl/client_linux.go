@@ -98,6 +98,12 @@ func (c *client) DeviceByName(name string) (*wgtypes.Device, error) {
 	return c.getDevice(0, name)
 }
 
+// ConfigureDevice implements osClient.
+func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
+	// TODO(mdlayher): implement.
+	return os.ErrNotExist
+}
+
 // getDevice fetches a Device using either its index or name, depending on which
 // is specified.  If both are specified, index is preferred.
 func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {

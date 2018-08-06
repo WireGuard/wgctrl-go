@@ -16,6 +16,7 @@ type wgClient interface {
 	Devices() ([]*Device, error)
 	DeviceByIndex(index int) (*Device, error)
 	DeviceByName(name string) (*Device, error)
+	ConfigureDevice(name string, cfg Config) error
 }
 
 // TODO(mdlayher): are type aliases the right choice here?
@@ -23,6 +24,9 @@ type wgClient interface {
 type (
 	// A Device is a WireGuard device.
 	Device = wgtypes.Device
+
+	// A Config is a WireGuard device configuration.
+	Config = wgtypes.Config
 
 	// A Peer is a WireGuard peer to a Device.
 	Peer = wgtypes.Peer
@@ -142,4 +146,28 @@ func (c *Client) DeviceByName(name string) (*Device, error) {
 	}
 
 	return nil, os.ErrNotExist
+}
+
+// ConfigureDevice configures a WireGuard device by its interface name.
+//
+// Because the zero value of some Go types may be significant to WireGuard for
+// Config fields, only fields which are not nil will be applied when
+// configuring a device.
+//
+// If the device specified by name does not exist or is not a WireGuard device,
+// an error is returned which can be checked using os.IsNotExist.
+func (c *Client) ConfigureDevice(name string, cfg Config) error {
+	for _, wgc := range c.cs {
+		err := wgc.ConfigureDevice(name, cfg)
+		switch {
+		case err == nil:
+			return nil
+		case os.IsNotExist(err):
+			continue
+		default:
+			return err
+		}
+	}
+
+	return os.ErrNotExist
 }

@@ -230,14 +230,93 @@ func TestClientDeviceByName(t *testing.T) {
 	}
 }
 
+func TestClientConfigureDevice(t *testing.T) {
+	type configFunc func(name string, cfg Config) error
+
+	var (
+		notExist = func(_ string, _ Config) error {
+			return os.ErrNotExist
+		}
+
+		willPanic = func(_ string, _ Config) error {
+			panic("shouldn't be called")
+		}
+
+		ok = func(_ string, _ Config) error {
+			return nil
+		}
+	)
+
+	tests := []struct {
+		name string
+		fns  []configFunc
+		err  error
+	}{
+		{
+			name: "first error",
+			fns: []configFunc{
+				func(_ string, _ Config) error {
+					return errFoo
+				},
+				willPanic,
+			},
+			err: errFoo,
+		},
+		{
+			name: "not found",
+			fns: []configFunc{
+				notExist,
+				notExist,
+			},
+			err: os.ErrNotExist,
+		},
+		{
+			name: "first not found",
+			fns: []configFunc{
+				notExist,
+				ok,
+			},
+		},
+		{
+			name: "first ok",
+			fns: []configFunc{
+				ok,
+				willPanic,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cs []wgClient
+			for _, fn := range tt.fns {
+				cs = append(cs, &testClient{
+					ConfigureDeviceFunc: fn,
+				})
+			}
+
+			c := &Client{cs: cs}
+
+			err := c.ConfigureDevice("", Config{})
+			if diff := cmp.Diff(tt.err, err, cmpErrors); diff != "" {
+				t.Fatalf("unexpected error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 type testClient struct {
-	CloseFunc         func() error
-	DevicesFunc       func() ([]*Device, error)
-	DeviceByIndexFunc func(index int) (*Device, error)
-	DeviceByNameFunc  func(name string) (*Device, error)
+	CloseFunc           func() error
+	DevicesFunc         func() ([]*Device, error)
+	DeviceByIndexFunc   func(index int) (*Device, error)
+	DeviceByNameFunc    func(name string) (*Device, error)
+	ConfigureDeviceFunc func(name string, cfg Config) error
 }
 
 func (c *testClient) Close() error                              { return c.CloseFunc() }
 func (c *testClient) Devices() ([]*Device, error)               { return c.DevicesFunc() }
 func (c *testClient) DeviceByIndex(index int) (*Device, error)  { return c.DeviceByIndexFunc(index) }
 func (c *testClient) DeviceByName(name string) (*Device, error) { return c.DeviceByNameFunc(name) }
+func (c *testClient) ConfigureDevice(name string, cfg Config) error {
+	return c.ConfigureDeviceFunc(name, cfg)
+}

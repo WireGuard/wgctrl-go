@@ -92,6 +92,19 @@ func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
 	return nil, os.ErrNotExist
 }
 
+// ConfigureDevice configures a WireGuard device by its interface name.
+//
+// Because the zero value of some Go types may be significant to WireGuard for
+// Config fields, only fields which are not nil will be applied when
+// configuring a device.
+//
+// If the device specified by name does not exist or is not a WireGuard device,
+// an error is returned which can be checked using os.IsNotExist.
+func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
+	// TODO(mdlayher): implement.
+	return os.ErrNotExist
+}
+
 // deviceName infers a device name from an absolute file path with extension.
 func deviceName(sock string) string {
 	return strings.TrimSuffix(filepath.Base(sock), filepath.Ext(sock))

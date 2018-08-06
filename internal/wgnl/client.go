@@ -49,10 +49,23 @@ func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
 	return c.c.DeviceByName(name)
 }
 
+// ConfigureDevice configures a WireGuard device by its interface name.
+//
+// Because the zero value of some Go types may be significant to WireGuard for
+// Config fields, only fields which are not nil will be applied when
+// configuring a device.
+//
+// If the device specified by name does not exist or is not a WireGuard device,
+// an error is returned which can be checked using os.IsNotExist.
+func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
+	return c.c.ConfigureDevice(name, cfg)
+}
+
 // An osClient is the operating system-specific implementation of Client.
 type osClient interface {
 	io.Closer
 	Devices() ([]*wgtypes.Device, error)
 	DeviceByIndex(index int) (*wgtypes.Device, error)
 	DeviceByName(name string) (*wgtypes.Device, error)
+	ConfigureDevice(name string, cfg wgtypes.Config) error
 }
