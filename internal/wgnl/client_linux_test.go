@@ -646,13 +646,20 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 			return false
 		}
 
-		// Zero out length values for comparison.
-		for i := 0; i < len(x); i++ {
-			x[i].Length = 0
-			y[i].Length = 0
+		// Make copies to avoid a race and then zero out length values
+		// for comparison.
+		xPrime := make([]netlink.Attribute, len(x))
+		copy(xPrime, x)
+
+		yPrime := make([]netlink.Attribute, len(y))
+		copy(yPrime, y)
+
+		for i := 0; i < len(xPrime); i++ {
+			xPrime[i].Length = 0
+			yPrime[i].Length = 0
 		}
 
-		return cmp.Equal(x, y)
+		return cmp.Equal(xPrime, yPrime)
 	})
 
 	nameAttr := netlink.Attribute{
