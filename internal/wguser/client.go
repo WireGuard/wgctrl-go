@@ -101,7 +101,19 @@ func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
 // If the device specified by name does not exist or is not a WireGuard device,
 // an error is returned which can be checked using os.IsNotExist.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
-	// TODO(mdlayher): implement.
+	socks, err := c.findSockets()
+	if err != nil {
+		return err
+	}
+
+	for _, sock := range socks {
+		if name != deviceName(sock) {
+			continue
+		}
+
+		return configureDevice(sock, cfg)
+	}
+
 	return os.ErrNotExist
 }
 

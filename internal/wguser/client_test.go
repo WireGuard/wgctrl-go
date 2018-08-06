@@ -43,6 +43,11 @@ errno=0
 
 `
 
+const okSet = `set=1
+private_key=e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a
+
+`
+
 func TestClientDevices(t *testing.T) {
 	// Used to trigger "parse peers" mode easily.
 	const okKey = "public_key=0000000000000000000000000000000000000000000000000000000000000000\n"
@@ -185,7 +190,6 @@ func TestClientDeviceByName(t *testing.T) {
 	tests := []struct {
 		name   string
 		device string
-		res    []byte
 		exists bool
 		d      *wgtypes.Device
 	}{
@@ -220,6 +224,82 @@ func TestClientDeviceByName(t *testing.T) {
 
 			if diff := cmp.Diff(tt.d, dev); diff != "" {
 				t.Fatalf("unexpected Device (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestClientConfigureDeviceError(t *testing.T) {
+	tests := []struct {
+		name     string
+		device   string
+		cfg      wgtypes.Config
+		res      []byte
+		notExist bool
+	}{
+		{
+			name:     "not found",
+			device:   "wg1",
+			notExist: true,
+		},
+		{
+			name:   "bad errno",
+			device: "testwg0",
+			res:    []byte("errno=1\n\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, done := testClient(t, tt.res)
+			defer done()
+
+			err := c.ConfigureDevice(tt.device, tt.cfg)
+			if err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+
+			if !tt.notExist && os.IsNotExist(err) {
+				t.Fatalf("expected other error, but got not exist: %v", err)
+			}
+			if tt.notExist && !os.IsNotExist(err) {
+				t.Fatalf("expected not exist error, but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestClientConfigureDeviceOK(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  wgtypes.Config
+		req  string
+	}{
+		{
+			name: "ok, none",
+			req:  "set=1\n\n",
+		},
+		{
+			name: "ok, all",
+			cfg: wgtypes.Config{
+				PrivateKey: &wgtypes.Key{0xe8, 0x4b, 0x5a, 0x6d, 0x27, 0x17, 0xc1, 0x0, 0x3a, 0x13, 0xb4, 0x31, 0x57, 0x3, 0x53, 0xdb, 0xac, 0xa9, 0x14, 0x6c, 0xf1, 0x50, 0xc5, 0xf8, 0x57, 0x56, 0x80, 0xfe, 0xba, 0x52, 0x2, 0x7a},
+			},
+			req: okSet,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, done := testClient(t, nil)
+
+			if err := c.ConfigureDevice("testwg0", tt.cfg); err != nil {
+				t.Fatalf("failed to configure device: %v", err)
+			}
+
+			req := done()
+
+			if diff := cmp.Diff(tt.req, string(req)); diff != "" {
+				t.Fatalf("unexpected configure request (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -263,7 +343,7 @@ func Test_findSocketFiles(t *testing.T) {
 	}
 }
 
-func testClient(t *testing.T, res []byte) (*Client, func()) {
+func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 	tmp, err := ioutil.TempDir(os.TempDir(), "wireguardcfg-test")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
@@ -276,6 +356,15 @@ func testClient(t *testing.T, res []byte) (*Client, func()) {
 	if err != nil {
 		t.Fatalf("failed to create socket: %v", err)
 	}
+
+	// When no response is specified, send "OK".
+	if res == nil {
+		res = []byte("errno=0\n\n")
+	}
+
+	// Request is passed to the caller on return from done func.
+	var mu sync.Mutex
+	req := make([]byte, 512)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -293,10 +382,15 @@ func testClient(t *testing.T, res []byte) (*Client, func()) {
 		}
 		defer c.Close()
 
-		b := make([]byte, 64)
-		if _, err := c.Read(b); err != nil {
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Pass request to the caller.
+		n, err := c.Read(req)
+		if err != nil {
 			panicf("failed to read request: %v", err)
 		}
+		req = req[:n]
 
 		if _, err := c.Write(res); err != nil {
 			panicf("failed to write response: %v", err)
@@ -309,11 +403,16 @@ func testClient(t *testing.T, res []byte) (*Client, func()) {
 		},
 	}
 
-	return c, func() {
+	return c, func() []byte {
+		mu.Lock()
+		defer mu.Unlock()
+
 		_ = c.Close()
 		_ = l.Close()
 		wg.Wait()
 		_ = os.RemoveAll(tmp)
+
+		return req
 	}
 }
 

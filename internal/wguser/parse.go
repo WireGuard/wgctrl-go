@@ -56,7 +56,7 @@ func parseDevice(r io.Reader) (*wgtypes.Device, error) {
 		// All data is in key=value format.
 		kvs := bytes.Split(b, []byte("="))
 		if len(kvs) != 2 {
-			return nil, fmt.Errorf("wireguardcfg: invalid key=value pair: %q", string(b))
+			return nil, fmt.Errorf("wguser: invalid key=value pair: %q", string(b))
 		}
 
 		dp.Parse(string(kvs[0]), string(kvs[1]))
@@ -100,7 +100,7 @@ func (dp *deviceParser) Parse(key, value string) {
 		// definitions from errno.h.
 		if errno := dp.parseInt(value); errno != 0 {
 			// TODO(mdlayher): return actual errno on Linux?
-			dp.err = os.NewSyscallError("read", fmt.Errorf("wireguardcfg errno: %d", errno))
+			dp.err = os.NewSyscallError("read", fmt.Errorf("wguser: errno=%d", errno))
 			return
 		}
 	case "public_key":
