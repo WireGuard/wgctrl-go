@@ -100,8 +100,20 @@ func (c *client) DeviceByName(name string) (*wgtypes.Device, error) {
 
 // ConfigureDevice implements osClient.
 func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
-	// TODO(mdlayher): implement.
-	return os.ErrNotExist
+	attrs, err := configAttrs(name, cfg)
+	if err != nil {
+		return err
+	}
+
+	// Request acknowledgement of our request from netlink, even though the
+	// output messages are unused.  The netlink package checks and trims the
+	// status code value.
+	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsAcknowledge
+	if _, err := c.execute(wgh.CmdSetDevice, flags, attrs); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // getDevice fetches a Device using either its index or name, depending on which
@@ -125,20 +137,30 @@ func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {
 		return nil, os.ErrNotExist
 	}
 
-	b, err := netlink.MarshalAttributes([]netlink.Attribute{attr})
+	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsDump
+	msgs, err := c.execute(wgh.CmdGetDevice, flags, []netlink.Attribute{attr})
+	if err != nil {
+		return nil, err
+	}
+
+	return parseDevice(msgs)
+}
+
+// execute executes a single WireGuard netlink request with the specified command,
+// header flags, and attribute arguments.
+func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrs []netlink.Attribute) ([]genetlink.Message, error) {
+	b, err := netlink.MarshalAttributes(attrs)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := genetlink.Message{
 		Header: genetlink.Header{
-			Command: wgh.CmdGetDevice,
+			Command: command,
 			Version: wgh.GenlVersion,
 		},
 		Data: b,
 	}
-
-	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsDump
 
 	msgs, err := c.c.Execute(msg, c.family.ID, flags)
 	if err != nil {
@@ -152,7 +174,25 @@ func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {
 		}
 	}
 
-	return parseDevice(msgs)
+	return msgs, nil
+}
+
+// configAttrs creates the required netlink attributes to configure the device
+// specified by name using the non-nil fields in cfg.
+func configAttrs(name string, cfg wgtypes.Config) ([]netlink.Attribute, error) {
+	attrs := []netlink.Attribute{{
+		Type: wgh.DeviceAIfname,
+		Data: nlenc.Bytes(name),
+	}}
+
+	if cfg.PrivateKey != nil {
+		attrs = append(attrs, netlink.Attribute{
+			Type: wgh.DeviceAPrivateKey,
+			Data: (*cfg.PrivateKey)[:],
+		})
+	}
+
+	return attrs, nil
 }
 
 // parseDevice parses a Device from a slice of generic netlink messages,

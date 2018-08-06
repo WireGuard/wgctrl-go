@@ -77,6 +77,10 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 		return err
 	}
 
+	configure := func(c *client) error {
+		return c.ConfigureDevice("wg0", wgtypes.Config{})
+	}
+
 	tests := []struct {
 		name string
 		fn   func(c *client) error
@@ -115,6 +119,16 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 		{
 			name: "name: ENOTSUP",
 			fn:   byName,
+			err:  unix.ENOTSUP,
+		},
+		{
+			name: "configure: ENODEV",
+			fn:   configure,
+			err:  unix.ENODEV,
+		},
+		{
+			name: "configure: ENOTSUP",
+			fn:   configure,
 			err:  unix.ENOTSUP,
 		},
 	}
@@ -625,6 +639,94 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 	}
 }
 
+func TestLinuxClientConfigureDevice(t *testing.T) {
+	attrsEqual := cmp.Comparer(func(x, y []netlink.Attribute) bool {
+		// Different lengths, not equal.
+		if len(x) != len(y) {
+			return false
+		}
+
+		// Zero out length values for comparison.
+		for i := 0; i < len(x); i++ {
+			x[i].Length = 0
+			y[i].Length = 0
+		}
+
+		return cmp.Equal(x, y)
+	})
+
+	nameAttr := netlink.Attribute{
+		Type: wgh.DeviceAIfname,
+		Data: nlenc.Bytes(okName),
+	}
+
+	priv := mustPrivateKey()
+
+	tests := []struct {
+		name  string
+		cfg   wgtypes.Config
+		attrs []netlink.Attribute
+		ok    bool
+	}{
+		{
+			name: "ok, none",
+			attrs: []netlink.Attribute{
+				nameAttr,
+			},
+			ok: true,
+		},
+		{
+			name: "ok, all",
+			cfg: wgtypes.Config{
+				PrivateKey: &priv,
+			},
+			attrs: []netlink.Attribute{
+				nameAttr,
+				{
+					Type: wgh.DeviceAPrivateKey,
+					Data: priv[:],
+				},
+			},
+			ok: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const (
+				cmd   = wgh.CmdSetDevice
+				flags = netlink.HeaderFlagsRequest | netlink.HeaderFlagsAcknowledge
+			)
+
+			fn := func(greq genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {
+				attrs, err := netlink.UnmarshalAttributes(greq.Data)
+				if err != nil {
+					return nil, err
+				}
+
+				if diff := cmp.Diff(tt.attrs, attrs, attrsEqual); diff != "" {
+					t.Fatalf("unexpected request attributes (-want +got):\n%s", diff)
+				}
+
+				// Data currently unused; send a message to acknowledge request.
+				return []genetlink.Message{{}}, nil
+			}
+
+			c := testClient(t, genltest.CheckRequest(familyID, cmd, flags, fn))
+			defer c.Close()
+
+			err := c.ConfigureDevice(okName, tt.cfg)
+
+			if tt.ok && err != nil {
+				t.Fatalf("failed to configure device: %v", err)
+			}
+			if !tt.ok && err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+		})
+	}
+}
+
 const familyID = 20
 
 func testClient(t *testing.T, fn genltest.Func) *client {
@@ -699,13 +801,17 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 	return nltest.MustMarshalAttributes(attrs)
 }
 
-func mustPublicKey() wgtypes.Key {
-	priv, err := wgtypes.NewPrivateKey()
+func mustPrivateKey() wgtypes.Key {
+	k, err := wgtypes.NewPrivateKey()
 	if err != nil {
 		panicf("failed to generate private key: %v", err)
 	}
 
-	return priv.PublicKey()
+	return k
+}
+
+func mustPublicKey() wgtypes.Key {
+	return mustPrivateKey().PublicKey()
 }
 
 func panicf(format string, a ...interface{}) {
