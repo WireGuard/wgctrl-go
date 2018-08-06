@@ -24,5 +24,19 @@ func configAttrs(name string, cfg wgtypes.Config) ([]netlink.Attribute, error) {
 		})
 	}
 
+	if cfg.ListenPort != nil {
+		attrs = append(attrs, netlink.Attribute{
+			Type: wgh.DeviceAListenPort,
+			Data: nlenc.Uint16Bytes(uint16(*cfg.ListenPort)),
+		})
+	}
+
+	if cfg.FirewallMark != nil {
+		attrs = append(attrs, netlink.Attribute{
+			Type: wgh.DeviceAFwmark,
+			Data: nlenc.Uint32Bytes(uint32(*cfg.FirewallMark)),
+		})
+	}
+
 	return attrs, nil
 }

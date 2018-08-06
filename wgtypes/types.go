@@ -103,7 +103,14 @@ type Peer struct {
 type Config struct {
 	// PrivateKey specifies a private key configuration, if not nil.
 	//
-	// A non-nil Key will set a new private key.  A non-nil, zero-value, Key
-	// will clear the private key.
+	// A non-nil, zero-value, Key will clear the private key.
 	PrivateKey *Key
+
+	// ListenPort specifies a device's listening port, if not nil.
+	ListenPort *int
+
+	// FirewallMark specifies a device's firewall mark, if not nil.
+	//
+	// If non-nil and set to 0, the firewall mark will be cleared.
+	FirewallMark *int
 }

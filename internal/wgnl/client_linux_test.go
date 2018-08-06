@@ -685,13 +685,23 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 		{
 			name: "ok, all",
 			cfg: wgtypes.Config{
-				PrivateKey: &priv,
+				PrivateKey:   &priv,
+				ListenPort:   intPtr(12912),
+				FirewallMark: intPtr(0),
 			},
 			attrs: []netlink.Attribute{
 				nameAttr,
 				{
 					Type: wgh.DeviceAPrivateKey,
 					Data: priv[:],
+				},
+				{
+					Type: wgh.DeviceAListenPort,
+					Data: nlenc.Uint16Bytes(12912),
+				},
+				{
+					Type: wgh.DeviceAFwmark,
+					Data: nlenc.Uint32Bytes(0),
 				},
 			},
 			ok: true,
@@ -819,6 +829,10 @@ func mustPrivateKey() wgtypes.Key {
 
 func mustPublicKey() wgtypes.Key {
 	return mustPrivateKey().PublicKey()
+}
+
+func intPtr(v int) *int {
+	return &v
 }
 
 func panicf(format string, a ...interface{}) {

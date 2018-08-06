@@ -55,4 +55,12 @@ func writeConfig(w io.Writer, cfg wgtypes.Config) {
 	if cfg.PrivateKey != nil {
 		fmt.Fprintf(w, "private_key=%s\n", hex.EncodeToString((*cfg.PrivateKey)[:]))
 	}
+
+	if cfg.ListenPort != nil {
+		fmt.Fprintf(w, "listen_port=%d\n", *cfg.ListenPort)
+	}
+
+	if cfg.FirewallMark != nil {
+		fmt.Fprintf(w, "fwmark=%d\n", *cfg.FirewallMark)
+	}
 }
