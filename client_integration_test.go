@@ -89,11 +89,6 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wireguardct
 		}
 
 		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
-			if os.IsNotExist(err) {
-				// TODO(mdlayher): wguser doesn't currently support configuration.
-				continue
-			}
-
 			t.Fatalf("failed to configure %q: %v", d.Name, err)
 		}
 
