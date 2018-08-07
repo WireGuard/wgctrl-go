@@ -58,9 +58,8 @@ func (c *client) Close() error {
 
 // Devices implements osClient.
 func (c *client) Devices() ([]*wgtypes.Device, error) {
-	// TODO(mdlayher): it doesn't seem possible to do a typical netlink dump
-	// of all WireGuard devices.  Perhaps consider raising this to the developers
-	// to solicit their feedback.
+	// TODO(mdlayher): consider using rtnetlink directly to fetch only WireGuard
+	// devices.  See: https://github.com/mdlayher/wireguardctrl/issues/5.
 	ifis, err := c.interfaces()
 	if err != nil {
 		return nil, err
