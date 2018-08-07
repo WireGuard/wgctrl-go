@@ -11,8 +11,8 @@
 //   - userspace devices (e.g. wireguard-go), via the userspace configuration protocol
 //
 // In the future, if non-Linux operating systems choose to implement WireGuard
-// natively, this package should also be extended to support that operating
-// system's native interface.
+// natively, this package should also be extended to support the native
+// interfaces of those operating systems.
 //
 // If you are aware of any efforts on this front, please file an issue:
 // https://github.com/mdlayher/wireguardctrl/issues/new.
