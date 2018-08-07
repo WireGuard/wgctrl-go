@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"syscall"
 	"testing"
 	"time"
 	"unsafe"
@@ -24,31 +25,20 @@ import (
 func TestLinuxClientDevicesEmpty(t *testing.T) {
 	tests := []struct {
 		name string
-		fn   func() ([]net.Interface, error)
-		err  error
+		fn   func() ([]string, error)
 	}{
 		{
 			name: "no interfaces",
-			fn: func() ([]net.Interface, error) {
+			fn: func() ([]string, error) {
 				return nil, nil
 			},
-		},
-		{
-			name: "no wireguard interfaces",
-			fn: func() ([]net.Interface, error) {
-				return []net.Interface{{
-					Index: 1,
-					Name:  "eth0",
-				}}, nil
-			},
-			err: unix.ENOTSUP,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := testClient(t, func(_ genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {
-				return nil, tt.err
+				panic("no devices; shouldn't call genetlink")
 			})
 			defer c.Close()
 
@@ -218,11 +208,8 @@ func TestLinuxClientDevicesError(t *testing.T) {
 			})
 			defer c.Close()
 
-			c.interfaces = func() ([]net.Interface, error) {
-				return []net.Interface{{
-					Index: okIndex,
-					Name:  okName,
-				}}, nil
+			c.interfaces = func() ([]string, error) {
+				return []string{okName}, nil
 			}
 
 			if _, err := c.Devices(); err == nil {
@@ -254,23 +241,14 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		interfaces func() ([]net.Interface, error)
+		interfaces func() ([]string, error)
 		msgs       [][]genetlink.Message
 		devices    []*wgtypes.Device
 	}{
 		{
 			name: "basic",
-			interfaces: func() ([]net.Interface, error) {
-				return []net.Interface{
-					{
-						Index: okIndex,
-						Name:  okName,
-					},
-					{
-						Index: 2,
-						Name:  "wg1",
-					},
-				}, nil
+			interfaces: func() ([]string, error) {
+				return []string{okName, "wg1"}, nil
 			},
 			msgs: [][]genetlink.Message{
 				{{
@@ -744,6 +722,118 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 	}
 }
 
+func Test_parseRTNLInterfaces(t *testing.T) {
+	// marshalAttrs creates packed netlink attributes with a prepended ifinfomsg
+	// structure, as returned by rtnetlink.
+	marshalAttrs := func(attrs []netlink.Attribute) []byte {
+		ifinfomsg := make([]byte, syscall.SizeofIfInfomsg)
+
+		return append(ifinfomsg, nltest.MustMarshalAttributes(attrs)...)
+	}
+
+	tests := []struct {
+		name string
+		msgs []syscall.NetlinkMessage
+		ifis []string
+		ok   bool
+	}{
+		{
+			name: "short ifinfomsg",
+			msgs: []syscall.NetlinkMessage{{
+				Header: syscall.NlMsghdr{
+					Type: unix.RTM_NEWLINK,
+				},
+				Data: []byte{0xff},
+			}},
+		},
+		{
+			name: "empty",
+			ok:   true,
+		},
+		{
+			name: "immediate done",
+			msgs: []syscall.NetlinkMessage{{
+				Header: syscall.NlMsghdr{
+					Type: unix.NLMSG_DONE,
+				},
+			}},
+			ok: true,
+		},
+		{
+			name: "ok",
+			msgs: []syscall.NetlinkMessage{
+				// Bridge device.
+				{
+					Header: syscall.NlMsghdr{
+						Type: unix.RTM_NEWLINK,
+					},
+					Data: marshalAttrs([]netlink.Attribute{
+						{
+							Type: unix.IFLA_IFNAME,
+							Data: nlenc.Bytes("br0"),
+						},
+						{
+							Type: unix.IFLA_LINKINFO,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+								Type: unix.IFLA_INFO_KIND,
+								Data: nlenc.Bytes("bridge"),
+							}}),
+						},
+					}),
+				},
+				// WireGuard device.
+				{
+					Header: syscall.NlMsghdr{
+						Type: unix.RTM_NEWLINK,
+					},
+					Data: marshalAttrs([]netlink.Attribute{
+						{
+							Type: unix.IFLA_IFNAME,
+							Data: nlenc.Bytes(okName),
+						},
+						{
+							Type: unix.IFLA_LINKINFO,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								// Random junk to skip.
+								{
+									Type: 255,
+									Data: nlenc.Uint16Bytes(0xff),
+								},
+								{
+									Type: unix.IFLA_INFO_KIND,
+									Data: nlenc.Bytes(wgKind),
+								},
+							}),
+						},
+					}),
+				},
+			},
+			ifis: []string{okName},
+			ok:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ifis, err := parseRTNLInterfaces(tt.msgs)
+
+			if tt.ok && err != nil {
+				t.Fatalf("failed to parse interfaces: %v", err)
+			}
+			if !tt.ok && err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+			if err != nil {
+				return
+			}
+
+			if diff := cmp.Diff(tt.ifis, ifis); diff != "" {
+				t.Fatalf("unexpected interfaces (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 const familyID = 20
 
 func testClient(t *testing.T, fn genltest.Func) *client {
@@ -760,11 +850,8 @@ func testClient(t *testing.T, fn genltest.Func) *client {
 		t.Fatalf("failed to open client: %v", err)
 	}
 
-	c.interfaces = func() ([]net.Interface, error) {
-		return []net.Interface{{
-			Index: okIndex,
-			Name:  okName,
-		}}, nil
+	c.interfaces = func() ([]string, error) {
+		return []string{okName}, nil
 	}
 
 	return c

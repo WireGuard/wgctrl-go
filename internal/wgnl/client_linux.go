@@ -3,8 +3,9 @@
 package wgnl
 
 import (
-	"net"
+	"fmt"
 	"os"
+	"syscall"
 
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
@@ -21,7 +22,7 @@ type client struct {
 	c      *genetlink.Conn
 	family genetlink.Family
 
-	interfaces func() ([]net.Interface, error)
+	interfaces func() ([]string, error)
 }
 
 // newClient opens a connection to the wireguard family using generic netlink.
@@ -46,8 +47,8 @@ func initClient(c *genetlink.Conn) (*client, error) {
 		c:      c,
 		family: f,
 
-		// By default, gather interfaces using package net.
-		interfaces: net.Interfaces,
+		// By default, gather only WireGuard interfaces using rtnetlink.
+		interfaces: rtnlInterfaces,
 	}, nil
 }
 
@@ -58,8 +59,11 @@ func (c *client) Close() error {
 
 // Devices implements osClient.
 func (c *client) Devices() ([]*wgtypes.Device, error) {
-	// TODO(mdlayher): consider using rtnetlink directly to fetch only WireGuard
-	// devices.  See: https://github.com/mdlayher/wireguardctrl/issues/5.
+	// By default, rtnetlink is used to fetch a list of all interfaces and then
+	// filter that list to only find WireGuard interfaces.
+	//
+	// The remainder of this function assumes that any returned device from this
+	// function is a valid WireGuard device.
 	ifis, err := c.interfaces()
 	if err != nil {
 		return nil, err
@@ -67,14 +71,8 @@ func (c *client) Devices() ([]*wgtypes.Device, error) {
 
 	var ds []*wgtypes.Device
 	for _, ifi := range ifis {
-		// Attempt to fetch device information.  If we receive a "not exist"
-		// error, the device must not be a WireGuard device.
-		d, err := c.getDevice(ifi.Index, ifi.Name)
+		d, err := c.getDevice(0, ifi)
 		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-
 			return nil, err
 		}
 
@@ -171,4 +169,96 @@ func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrs []netli
 	}
 
 	return msgs, nil
+}
+
+// rtnlInterfaces uses rtnetlink to fetch a list of WireGuard interfaces.
+func rtnlInterfaces() ([]string, error) {
+	// Use the stdlib's rtnetlink helpers to get ahold of a table of all
+	// interfaces, so we can begin filtering it down to just WireGuard devices.
+	tab, err := syscall.NetlinkRIB(unix.RTM_GETLINK, unix.AF_UNSPEC)
+	if err != nil {
+		return nil, fmt.Errorf("wgnl: failed to get list of interfaces from rtnetlink: %v", err)
+	}
+
+	msgs, err := syscall.ParseNetlinkMessage(tab)
+	if err != nil {
+		return nil, fmt.Errorf("wgnl: failed to parse rtnetlink messages: %v", err)
+	}
+
+	return parseRTNLInterfaces(msgs)
+}
+
+// parseRTNLInterfaces unpacks rtnetlink messages and returns WireGuard
+// interface names.
+func parseRTNLInterfaces(msgs []syscall.NetlinkMessage) ([]string, error) {
+	var ifis []string
+	for _, m := range msgs {
+		// Only deal with link messages, and they must have an ifinfomsg
+		// structure appear before the attributes.
+		if m.Header.Type != unix.RTM_NEWLINK {
+			continue
+		}
+
+		if len(m.Data) < unix.SizeofIfInfomsg {
+			return nil, fmt.Errorf("wgnl: rtnetlink message is too short for ifinfomsg: %d", len(m.Data))
+		}
+
+		ad, err := netlink.NewAttributeDecoder(m.Data[syscall.SizeofIfInfomsg:])
+		if err != nil {
+			return nil, err
+		}
+
+		// Determine the interface's name and if it's a WireGuard device.
+		var (
+			ifi  string
+			isWG bool
+		)
+
+		for ad.Next() {
+			switch ad.Type() {
+			case unix.IFLA_IFNAME:
+				ifi = ad.String()
+			case unix.IFLA_LINKINFO:
+				ad.Do(isWGKind(&isWG))
+			}
+		}
+
+		if err := ad.Err(); err != nil {
+			return nil, err
+		}
+
+		if isWG {
+			// Found one; append it to the list.
+			ifis = append(ifis, ifi)
+		}
+	}
+
+	return ifis, nil
+}
+
+// wgKind is the IFLA_INFO_KIND value for WireGuard devices.
+const wgKind = "wireguard"
+
+// isWGKind parses netlink attributes to determine if a link is a WireGuard
+// device, then populates ok with the result.
+func isWGKind(ok *bool) func(b []byte) error {
+	return func(b []byte) error {
+		ad, err := netlink.NewAttributeDecoder(b)
+		if err != nil {
+			return err
+		}
+
+		for ad.Next() {
+			if ad.Type() != unix.IFLA_INFO_KIND {
+				continue
+			}
+
+			if ad.String() == wgKind {
+				*ok = true
+				return nil
+			}
+		}
+
+		return ad.Err()
+	}
 }
