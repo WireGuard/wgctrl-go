@@ -28,10 +28,10 @@ func New() (*Client, error) {
 	}, nil
 }
 
-// Close releases resources used by a Client.
+// Close implements wireguardctrl.wgClient.
 func (c *Client) Close() error { return nil }
 
-// Devices retrieves all WireGuard devices on this system.
+// Devices implements wireguardctrl.wgClient.
 func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	socks, err := c.findSockets()
 	if err != nil {
@@ -51,10 +51,7 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	return ds, nil
 }
 
-// DeviceByIndex retrieves a WireGuard device by its interface index.
-//
-// If the device specified by index does not exist or is not a WireGuard device,
-// an error is returned which can be checked using os.IsNotExist.
+// DeviceByIndex implements wireguardctrl.wgClient.
 func (c *Client) DeviceByIndex(index int) (*wgtypes.Device, error) {
 	ifi, err := net.InterfaceByIndex(index)
 	if err != nil {
@@ -71,10 +68,7 @@ func (c *Client) DeviceByIndex(index int) (*wgtypes.Device, error) {
 	return c.DeviceByName(ifi.Name)
 }
 
-// DeviceByName retrieves a WireGuard device by its interface name.
-//
-// If the device specified by name does not exist or is not a WireGuard device,
-// an error is returned which can be checked using os.IsNotExist.
+// DeviceByName implements wireguardctrl.wgClient.
 func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
 	socks, err := c.findSockets()
 	if err != nil {
@@ -92,14 +86,7 @@ func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
 	return nil, os.ErrNotExist
 }
 
-// ConfigureDevice configures a WireGuard device by its interface name.
-//
-// Because the zero value of some Go types may be significant to WireGuard for
-// Config fields, only fields which are not nil will be applied when
-// configuring a device.
-//
-// If the device specified by name does not exist or is not a WireGuard device,
-// an error is returned which can be checked using os.IsNotExist.
+// ConfigureDevice implements wireguardctrl.wgClient.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	socks, err := c.findSockets()
 	if err != nil {
