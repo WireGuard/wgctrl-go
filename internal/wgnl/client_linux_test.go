@@ -819,7 +819,7 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 }
 
 func mustPrivateKey() wgtypes.Key {
-	k, err := wgtypes.NewPrivateKey()
+	k, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
 		panicf("failed to generate private key: %v", err)
 	}

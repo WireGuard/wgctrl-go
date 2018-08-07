@@ -53,7 +53,7 @@ func TestKeyExchange(t *testing.T) {
 }
 
 func mustKeyPair() (private, public *[32]byte) {
-	priv, err := wgtypes.NewPrivateKey()
+	priv, err := wgtypes.GeneratePrivateKey()
 	if err != nil {
 		panicf("failed to generate private key: %v", err)
 	}

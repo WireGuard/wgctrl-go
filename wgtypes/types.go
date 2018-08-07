@@ -24,27 +24,38 @@ type Device struct {
 
 const keyLen = 32 // wgh.KeyLen
 
-// A Key is a public or private key.
+// A Key is a public, private, or pre-shared secret key.  The Key constructor
+// functions in this package can be used to create Keys suitable for each of
+// these applications.
 type Key [keyLen]byte
 
-// NewPrivateKey generates a Key containing a private key from a cryptographically
-// safe source.
-func NewPrivateKey() (Key, error) {
+// GenerateKey generates a Key suitable for use as a pre-shared secret key from
+// a cryptographically safe source.
+//
+// The output Key should not be used as a private key; use GeneratePrivateKey
+// instead.
+func GenerateKey() (Key, error) {
 	b := make([]byte, keyLen)
 	if _, err := rand.Read(b); err != nil {
-		return Key{}, fmt.Errorf("wireguardctrl: failed to read random bytes: %v", err)
+		return Key{}, fmt.Errorf("wgtypes: failed to read random bytes: %v", err)
+	}
+
+	return NewKey(b)
+}
+
+// GeneratePrivateKey generates a Key suitable for use as a private key from a
+// cryptographically safe source.
+func GeneratePrivateKey() (Key, error) {
+	key, err := GenerateKey()
+	if err != nil {
+		return Key{}, err
 	}
 
 	// Modify random bytes using algorithm described at:
 	// https://cr.yp.to/ecdh.html.
-	b[0] &= 248
-	b[31] &= 127
-	b[31] |= 64
-
-	key, err := NewKey(b)
-	if err != nil {
-		return Key{}, fmt.Errorf("wireguardctrl: failed to create key: %v", err)
-	}
+	key[0] &= 248
+	key[31] &= 127
+	key[31] |= 64
 
 	return key, nil
 }
@@ -53,7 +64,7 @@ func NewPrivateKey() (Key, error) {
 // exactly 32 bytes in length.
 func NewKey(b []byte) (Key, error) {
 	if len(b) != keyLen {
-		return Key{}, fmt.Errorf("wireguardctrl: incorrect key size: %d", len(b))
+		return Key{}, fmt.Errorf("wgtypes: incorrect key size: %d", len(b))
 	}
 
 	var k Key
