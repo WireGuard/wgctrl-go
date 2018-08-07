@@ -40,7 +40,7 @@ func TestClientIntegration(t *testing.T) {
 	})
 }
 
-func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wireguardctrl.Device) {
+func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	t.Helper()
 
 	for _, d := range devices {
@@ -73,18 +73,18 @@ func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wireguardctrl.Dev
 	}
 }
 
-func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wireguardctrl.Device) {
+func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	t.Helper()
 
 	for _, d := range devices {
 		t.Logf("before: %s: %s", d.Name, d.PublicKey.String())
 
-		priv, err := wgtypes.NewPrivateKey()
+		priv, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
 			t.Fatalf("failed to generate private key: %v", err)
 		}
 
-		cfg := wireguardctrl.Config{
+		cfg := wgtypes.Config{
 			PrivateKey: &priv,
 		}
 
