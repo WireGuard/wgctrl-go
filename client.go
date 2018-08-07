@@ -13,27 +13,11 @@ import (
 // An osClient is the operating system-specific implementation of Client.
 type wgClient interface {
 	io.Closer
-	Devices() ([]*Device, error)
-	DeviceByIndex(index int) (*Device, error)
-	DeviceByName(name string) (*Device, error)
-	ConfigureDevice(name string, cfg Config) error
+	Devices() ([]*wgtypes.Device, error)
+	DeviceByIndex(index int) (*wgtypes.Device, error)
+	DeviceByName(name string) (*wgtypes.Device, error)
+	ConfigureDevice(name string, cfg wgtypes.Config) error
 }
-
-// TODO(mdlayher): are type aliases the right choice here?
-
-type (
-	// A Device is a WireGuard device.
-	Device = wgtypes.Device
-
-	// A Config is a WireGuard device configuration.
-	Config = wgtypes.Config
-
-	// A Peer is a WireGuard peer to a Device.
-	Peer = wgtypes.Peer
-
-	// A Key is a public or private key.
-	Key = wgtypes.Key
-)
 
 // Expose an identical interface to the underlying packages.
 var _ wgClient = &Client{}
@@ -94,8 +78,8 @@ func (c *Client) Close() error {
 }
 
 // Devices retrieves all WireGuard devices on this system.
-func (c *Client) Devices() ([]*Device, error) {
-	var out []*Device
+func (c *Client) Devices() ([]*wgtypes.Device, error) {
+	var out []*wgtypes.Device
 	for _, wgc := range c.cs {
 		devs, err := wgc.Devices()
 		if err != nil {
@@ -112,7 +96,7 @@ func (c *Client) Devices() ([]*Device, error) {
 //
 // If the device specified by index does not exist or is not a WireGuard device,
 // an error is returned which can be checked using os.IsNotExist.
-func (c *Client) DeviceByIndex(index int) (*Device, error) {
+func (c *Client) DeviceByIndex(index int) (*wgtypes.Device, error) {
 	for _, wgc := range c.cs {
 		d, err := wgc.DeviceByIndex(index)
 		switch {
@@ -132,7 +116,7 @@ func (c *Client) DeviceByIndex(index int) (*Device, error) {
 //
 // If the device specified by name does not exist or is not a WireGuard device,
 // an error is returned which can be checked using os.IsNotExist.
-func (c *Client) DeviceByName(name string) (*Device, error) {
+func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
 	for _, wgc := range c.cs {
 		d, err := wgc.DeviceByName(name)
 		switch {
@@ -156,7 +140,7 @@ func (c *Client) DeviceByName(name string) (*Device, error) {
 //
 // If the device specified by name does not exist or is not a WireGuard device,
 // an error is returned which can be checked using os.IsNotExist.
-func (c *Client) ConfigureDevice(name string, cfg Config) error {
+func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	for _, wgc := range c.cs {
 		err := wgc.ConfigureDevice(name, cfg)
 		switch {

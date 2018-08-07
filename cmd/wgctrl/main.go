@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mdlayher/wireguardctrl"
+	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 	}
 }
 
-func printDevice(d *wireguardctrl.Device) {
+func printDevice(d *wgtypes.Device) {
 	const f = `interface: %s
   public key: %s
   private key: (hidden)
@@ -47,7 +48,7 @@ func printDevice(d *wireguardctrl.Device) {
 		d.ListenPort)
 }
 
-func printPeer(p wireguardctrl.Peer) {
+func printPeer(p wgtypes.Peer) {
 	const f = `peer: %s
   endpoint: %s
   allowed ips: %s

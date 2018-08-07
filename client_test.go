@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
 
 var (
 	errFoo = errors.New("some error")
 
-	okDevice = &Device{Name: "wg0"}
+	okDevice = &wgtypes.Device{Name: "wg0"}
 
 	cmpErrors = cmp.Comparer(func(x, y error) bool {
 		return x.Error() == y.Error()
@@ -42,8 +43,8 @@ func TestClientClose(t *testing.T) {
 }
 
 func TestClientDevices(t *testing.T) {
-	fn := func() ([]*Device, error) {
-		return []*Device{okDevice}, nil
+	fn := func() ([]*wgtypes.Device, error) {
+		return []*wgtypes.Device{okDevice}, nil
 	}
 
 	c := &Client{
@@ -65,18 +66,18 @@ func TestClientDevices(t *testing.T) {
 }
 
 func TestClientDeviceByIndex(t *testing.T) {
-	type byIndexFunc func(index int) (*Device, error)
+	type byIndexFunc func(index int) (*wgtypes.Device, error)
 
 	var (
-		notExist = func(_ int) (*Device, error) {
+		notExist = func(_ int) (*wgtypes.Device, error) {
 			return nil, os.ErrNotExist
 		}
 
-		willPanic = func(_ int) (*Device, error) {
+		willPanic = func(_ int) (*wgtypes.Device, error) {
 			panic("shouldn't be called")
 		}
 
-		returnDevice = func(_ int) (*Device, error) {
+		returnDevice = func(_ int) (*wgtypes.Device, error) {
 			return okDevice, nil
 		}
 	)
@@ -89,7 +90,7 @@ func TestClientDeviceByIndex(t *testing.T) {
 		{
 			name: "first error",
 			fns: []byIndexFunc{
-				func(_ int) (*Device, error) {
+				func(_ int) (*wgtypes.Device, error) {
 					return nil, errFoo
 				},
 				willPanic,
@@ -148,18 +149,18 @@ func TestClientDeviceByIndex(t *testing.T) {
 }
 
 func TestClientDeviceByName(t *testing.T) {
-	type byNameFunc func(name string) (*Device, error)
+	type byNameFunc func(name string) (*wgtypes.Device, error)
 
 	var (
-		notExist = func(_ string) (*Device, error) {
+		notExist = func(_ string) (*wgtypes.Device, error) {
 			return nil, os.ErrNotExist
 		}
 
-		willPanic = func(_ string) (*Device, error) {
+		willPanic = func(_ string) (*wgtypes.Device, error) {
 			panic("shouldn't be called")
 		}
 
-		returnDevice = func(_ string) (*Device, error) {
+		returnDevice = func(_ string) (*wgtypes.Device, error) {
 			return okDevice, nil
 		}
 	)
@@ -172,7 +173,7 @@ func TestClientDeviceByName(t *testing.T) {
 		{
 			name: "first error",
 			fns: []byNameFunc{
-				func(_ string) (*Device, error) {
+				func(_ string) (*wgtypes.Device, error) {
 					return nil, errFoo
 				},
 				willPanic,
@@ -231,18 +232,18 @@ func TestClientDeviceByName(t *testing.T) {
 }
 
 func TestClientConfigureDevice(t *testing.T) {
-	type configFunc func(name string, cfg Config) error
+	type configFunc func(name string, cfg wgtypes.Config) error
 
 	var (
-		notExist = func(_ string, _ Config) error {
+		notExist = func(_ string, _ wgtypes.Config) error {
 			return os.ErrNotExist
 		}
 
-		willPanic = func(_ string, _ Config) error {
+		willPanic = func(_ string, _ wgtypes.Config) error {
 			panic("shouldn't be called")
 		}
 
-		ok = func(_ string, _ Config) error {
+		ok = func(_ string, _ wgtypes.Config) error {
 			return nil
 		}
 	)
@@ -255,7 +256,7 @@ func TestClientConfigureDevice(t *testing.T) {
 		{
 			name: "first error",
 			fns: []configFunc{
-				func(_ string, _ Config) error {
+				func(_ string, _ wgtypes.Config) error {
 					return errFoo
 				},
 				willPanic,
@@ -297,7 +298,7 @@ func TestClientConfigureDevice(t *testing.T) {
 
 			c := &Client{cs: cs}
 
-			err := c.ConfigureDevice("", Config{})
+			err := c.ConfigureDevice("", wgtypes.Config{})
 			if diff := cmp.Diff(tt.err, err, cmpErrors); diff != "" {
 				t.Fatalf("unexpected error (-want +got):\n%s", diff)
 			}
@@ -307,16 +308,20 @@ func TestClientConfigureDevice(t *testing.T) {
 
 type testClient struct {
 	CloseFunc           func() error
-	DevicesFunc         func() ([]*Device, error)
-	DeviceByIndexFunc   func(index int) (*Device, error)
-	DeviceByNameFunc    func(name string) (*Device, error)
-	ConfigureDeviceFunc func(name string, cfg Config) error
+	DevicesFunc         func() ([]*wgtypes.Device, error)
+	DeviceByIndexFunc   func(index int) (*wgtypes.Device, error)
+	DeviceByNameFunc    func(name string) (*wgtypes.Device, error)
+	ConfigureDeviceFunc func(name string, cfg wgtypes.Config) error
 }
 
-func (c *testClient) Close() error                              { return c.CloseFunc() }
-func (c *testClient) Devices() ([]*Device, error)               { return c.DevicesFunc() }
-func (c *testClient) DeviceByIndex(index int) (*Device, error)  { return c.DeviceByIndexFunc(index) }
-func (c *testClient) DeviceByName(name string) (*Device, error) { return c.DeviceByNameFunc(name) }
-func (c *testClient) ConfigureDevice(name string, cfg Config) error {
+func (c *testClient) Close() error                        { return c.CloseFunc() }
+func (c *testClient) Devices() ([]*wgtypes.Device, error) { return c.DevicesFunc() }
+func (c *testClient) DeviceByIndex(index int) (*wgtypes.Device, error) {
+	return c.DeviceByIndexFunc(index)
+}
+func (c *testClient) DeviceByName(name string) (*wgtypes.Device, error) {
+	return c.DeviceByNameFunc(name)
+}
+func (c *testClient) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	return c.ConfigureDeviceFunc(name, cfg)
 }
