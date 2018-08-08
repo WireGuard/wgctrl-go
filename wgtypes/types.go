@@ -107,8 +107,8 @@ type Peer struct {
 	Endpoint                    *net.UDPAddr
 	PersistentKeepaliveInterval time.Duration
 	LastHandshakeTime           time.Time
-	ReceiveBytes                int
-	TransmitBytes               int
+	ReceiveBytes                int64
+	TransmitBytes               int64
 	AllowedIPs                  []net.IPNet
 }
 

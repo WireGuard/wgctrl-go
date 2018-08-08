@@ -117,9 +117,9 @@ func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 			case wgh.PeerALastHandshakeTime:
 				ad.Do(parseTimespec(&p.LastHandshakeTime))
 			case wgh.PeerARxBytes:
-				p.ReceiveBytes = int(ad.Uint64())
+				p.ReceiveBytes = int64(ad.Uint64())
 			case wgh.PeerATxBytes:
-				p.TransmitBytes = int(ad.Uint64())
+				p.TransmitBytes = int64(ad.Uint64())
 			case wgh.PeerAAllowedips:
 				ad.Do(func(b []byte) error {
 					ipns, err := parseAllowedIPs(b)

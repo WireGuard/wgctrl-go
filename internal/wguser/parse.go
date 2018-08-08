@@ -157,9 +157,9 @@ func (dp *deviceParser) peerParse(key, value string) {
 		// TODO(mdlayher): verify validity of assuming ordering with this approach.
 		p.LastHandshakeTime = time.Unix(int64(dp.hsSec), int64(dp.hsNano))
 	case "tx_bytes":
-		p.TransmitBytes = dp.parseInt(value)
+		p.TransmitBytes = dp.parseInt64(value)
 	case "rx_bytes":
-		p.ReceiveBytes = dp.parseInt(value)
+		p.ReceiveBytes = dp.parseInt64(value)
 	case "persistent_keepalive_interval":
 		p.PersistentKeepaliveInterval = time.Duration(dp.parseInt(value)) * time.Second
 	case "allowed_ip":
@@ -198,6 +198,21 @@ func (dp *deviceParser) parseInt(s string) int {
 	}
 
 	v, err := strconv.Atoi(s)
+	if err != nil {
+		dp.err = err
+		return 0
+	}
+
+	return v
+}
+
+// parseInt64 parses an int64 from a string.
+func (dp *deviceParser) parseInt64(s string) int64 {
+	if dp.err != nil {
+		return 0
+	}
+
+	v, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		dp.err = err
 		return 0
