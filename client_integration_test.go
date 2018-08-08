@@ -14,6 +14,7 @@ import (
 	"github.com/mdlayher/wireguardctrl"
 	"github.com/mdlayher/wireguardctrl/internal/wgtest"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"github.com/mikioh/ipaddr"
 )
 
 func TestClientIntegration(t *testing.T) {
@@ -41,6 +42,10 @@ func TestClientIntegration(t *testing.T) {
 
 	t.Run("configure", func(t *testing.T) {
 		testConfigure(t, c, devices)
+	})
+
+	t.Run("configure many IPs", func(t *testing.T) {
+		testConfigureManyIPs(t, c, devices)
 	})
 }
 
@@ -154,6 +159,73 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 
 		t.Log(out)
 	}
+}
+
+func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+	t.Helper()
+
+	timer := time.AfterFunc(5*time.Second, func() {
+		panic("configuring peer IPs took too long")
+	})
+	defer timer.Stop()
+
+	for _, d := range devices {
+		// TODO(mdlayher): apply a second subnet of IPs once potential bug
+		// is resolved.
+
+		// Apply 511 IPs.
+		cur, err := ipaddr.Parse("2001:db8::/119")
+		if err != nil {
+			t.Fatalf("failed to create cursor: %v", err)
+		}
+
+		var ips []net.IPNet
+		for pos := cur.Next(); pos != nil; pos = cur.Next() {
+			bits := 128
+			if pos.IP.To4() != nil {
+				bits = 32
+			}
+
+			ips = append(ips, net.IPNet{
+				IP:   pos.IP,
+				Mask: net.CIDRMask(bits, bits),
+			})
+		}
+
+		cfg := wgtypes.Config{
+			ReplacePeers: true,
+			Peers: []wgtypes.PeerConfig{{
+				PublicKey:         wgtest.MustPublicKey(),
+				ReplaceAllowedIPs: true,
+				AllowedIPs:        ips,
+			}},
+		}
+
+		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+			t.Fatalf("failed to configure %q: %v", d.Name, err)
+		}
+
+		dn, err := c.DeviceByName(d.Name)
+		if err != nil {
+			t.Fatalf("failed to get %q by name: %v", d.Name, err)
+		}
+
+		peerIPs := countPeerIPs(dn)
+		if diff := cmp.Diff(len(ips), peerIPs); diff != "" {
+			t.Fatalf("unexpected number of configured peer IPs (-want +got):\n%s", diff)
+		}
+
+		t.Logf("device: %s: %d IPs", d.Name, peerIPs)
+	}
+}
+
+func countPeerIPs(d *wgtypes.Device) int {
+	var count int
+	for _, p := range d.Peers {
+		count += len(p.AllowedIPs)
+	}
+
+	return count
 }
 
 func ipsString(ipns []net.IPNet) string {

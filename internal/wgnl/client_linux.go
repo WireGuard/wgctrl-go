@@ -94,17 +94,20 @@ func (c *client) DeviceByName(name string) (*wgtypes.Device, error) {
 
 // ConfigureDevice implements osClient.
 func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
-	attrs, err := configAttrs(name, cfg)
-	if err != nil {
-		return err
-	}
+	// Large configurations are split into batches for use with netlink.
+	for _, b := range buildBatches(cfg) {
+		attrs, err := configAttrs(name, b)
+		if err != nil {
+			return err
+		}
 
-	// Request acknowledgement of our request from netlink, even though the
-	// output messages are unused.  The netlink package checks and trims the
-	// status code value.
-	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsAcknowledge
-	if _, err := c.execute(wgh.CmdSetDevice, flags, attrs); err != nil {
-		return err
+		// Request acknowledgement of our request from netlink, even though the
+		// output messages are unused.  The netlink package checks and trims the
+		// status code value.
+		flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsAcknowledge
+		if _, err := c.execute(wgh.CmdSetDevice, flags, attrs); err != nil {
+			return err
+		}
 	}
 
 	return nil

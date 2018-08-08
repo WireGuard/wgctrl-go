@@ -16,6 +16,7 @@ import (
 	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/internal/wgtest"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"github.com/mikioh/ipaddr"
 	"golang.org/x/sys/unix"
 )
 
@@ -272,7 +273,236 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 	}
 }
 
+func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
+	nameAttr := netlink.Attribute{
+		Type: wgh.DeviceAIfname,
+		Data: nlenc.Bytes(okName),
+	}
+
+	var (
+		peerA    = wgtest.MustPublicKey()
+		peerAIPs = generateIPs(batchChunk + 1)
+
+		peerB    = wgtest.MustPublicKey()
+		peerBIPs = generateIPs(batchChunk / 2)
+
+		peerC    = wgtest.MustPublicKey()
+		peerCIPs = generateIPs(batchChunk * 3)
+	)
+
+	cfg := wgtypes.Config{
+		ReplacePeers: true,
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey:         peerA,
+				ReplaceAllowedIPs: true,
+				AllowedIPs:        peerAIPs,
+			},
+			{
+				PublicKey:         peerB,
+				ReplaceAllowedIPs: true,
+				AllowedIPs:        peerBIPs,
+			},
+			{
+				PublicKey:         peerC,
+				ReplaceAllowedIPs: true,
+				AllowedIPs:        peerCIPs,
+			},
+		},
+	}
+
+	var allAttrs []netlink.Attribute
+	fn := func(greq genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {
+		attrs, err := netlink.UnmarshalAttributes(greq.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		allAttrs = append(allAttrs, attrs...)
+
+		// Data currently unused; send a message to acknowledge request.
+		return []genetlink.Message{{}}, nil
+	}
+
+	c := testClient(t, fn)
+	defer c.Close()
+
+	if err := c.ConfigureDevice(okName, cfg); err != nil {
+		t.Fatalf("failed to configure: %v", err)
+	}
+
+	want := []netlink.Attribute{
+		// First peer, first chunk.
+		nameAttr,
+		{
+			Type: wgh.DeviceAFlags,
+			Data: nlenc.Uint32Bytes(wgh.DeviceFReplacePeers),
+		},
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerA[:],
+						},
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+						},
+						{
+							Type: wgh.PeerAAllowedips,
+							Data: mustAllowedIPs(peerAIPs[:batchChunk]),
+						},
+					}),
+				},
+			}),
+		},
+		// First peer, final chunk.
+		nameAttr,
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerA[:],
+						},
+						// Not first chunk; don't replace IPs.
+						{
+							Type: wgh.PeerAAllowedips,
+							Data: mustAllowedIPs(peerAIPs[batchChunk:]),
+						},
+					}),
+				},
+			}),
+		},
+		// Second peer, only chunk.
+		nameAttr,
+		// This is not the first peer; don't replace existing peers.
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerB[:],
+						},
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+						},
+						{
+							Type: wgh.PeerAAllowedips,
+							Data: mustAllowedIPs(peerBIPs),
+						},
+					}),
+				},
+			}),
+		},
+		// Third peer, first chunk.
+		nameAttr,
+		// This is not the first peer; don't replace existing peers.
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerC[:],
+						},
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+						},
+						{
+							Type: wgh.PeerAAllowedips,
+							Data: mustAllowedIPs(peerCIPs[:batchChunk]),
+						},
+					}),
+				},
+			}),
+		},
+		// Third peer, second chunk.
+		nameAttr,
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerC[:],
+						},
+						// Not first chunk; don't replace IPs.
+						{
+							Type: wgh.PeerAAllowedips,
+							Data: mustAllowedIPs(peerCIPs[batchChunk : batchChunk*2]),
+						},
+					}),
+				},
+			}),
+		},
+		// Third peer, final chunk.
+		nameAttr,
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerC[:],
+						},
+						// Not first chunk; don't replace IPs.
+						{
+							Type: wgh.PeerAAllowedips,
+							Data: mustAllowedIPs(peerCIPs[batchChunk*2:]),
+						},
+					}),
+				},
+			}),
+		},
+	}
+
+	if diff := diffAttrs(want, allAttrs); diff != "" {
+		t.Fatalf("unexpected final attributes (-want +got):\n%s", diff)
+	}
+}
+
 func keyBytes(s string) []byte {
 	k := wgtest.MustHexKey(s)
 	return k[:]
+}
+
+func generateIPs(n int) []net.IPNet {
+	cur, err := ipaddr.Parse("2001:db8::/64")
+	if err != nil {
+		panicf("failed to create cursor: %v", err)
+	}
+
+	ips := make([]net.IPNet, 0, n)
+	for i := 0; i < n; i++ {
+		pos := cur.Next()
+		if pos == nil {
+			panic("hit nil IP during IP generation")
+		}
+
+		ips = append(ips, net.IPNet{
+			IP:   pos.IP,
+			Mask: net.CIDRMask(128, 128),
+		})
+	}
+
+	return ips
 }
