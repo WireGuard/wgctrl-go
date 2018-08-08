@@ -10,6 +10,7 @@ before_install:
   - go get github.com/golang/lint/golint
   - go get honnef.co/go/tools/cmd/megacheck
   - go get -d ./...
+  - go get github.com/mikioh/ipaddr
 script:
   - go build -tags=gofuzz ./...
   - diff -u <(echo -n) <(gofmt -d -s .)
