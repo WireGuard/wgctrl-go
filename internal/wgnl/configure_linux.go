@@ -94,20 +94,9 @@ func peerBytes(p wgtypes.PeerConfig) ([]byte, error) {
 		attrs.push(wgh.PeerAPersistentKeepaliveInterval, nlenc.Uint16Bytes(uint16(p.PersistentKeepaliveInterval.Seconds())))
 	}
 
-	var ipsArr nlAttrs
-	for i, ip := range p.AllowedIPs {
-		b, err := allowedIPBytes(ip)
-		if err != nil {
-			return nil, err
-		}
-
-		// Netlink arrays use type as an array index.
-		ipsArr.push(uint16(i), b)
-	}
-
 	// Only apply allowed IPs if necessary.
-	if len(ipsArr) > 0 {
-		b, err := netlink.MarshalAttributes(ipsArr)
+	if len(p.AllowedIPs) > 0 {
+		b, err := allowedIPBytes(p.AllowedIPs)
 		if err != nil {
 			return nil, err
 		}
@@ -150,26 +139,39 @@ func sockaddrBytes(endpoint net.UDPAddr) ([]byte, error) {
 	return (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&sa)))[:], nil
 }
 
-// allowedIPBytes converts a net.IPNet to packed netlink attribute bytes.
-func allowedIPBytes(ipn net.IPNet) ([]byte, error) {
-	if !isValidIP(ipn.IP) {
-		return nil, fmt.Errorf("wgnl: invalid allowed IP: %s", ipn.IP.String())
+// allowedIPBytes converts a slice net.IPNets to packed netlink attribute bytes.
+func allowedIPBytes(ipns []net.IPNet) ([]byte, error) {
+	var ipArr nlAttrs
+	for i, ipn := range ipns {
+		if !isValidIP(ipn.IP) {
+			return nil, fmt.Errorf("wgnl: invalid allowed IP: %s", ipn.IP.String())
+		}
+
+		family := uint16(unix.AF_INET6)
+		if !isIPv6(ipn.IP) {
+			// Make sure address is 4 bytes if IPv4.
+			family = unix.AF_INET
+			ipn.IP = ipn.IP.To4()
+		}
+
+		var attrs nlAttrs
+		attrs.push(wgh.AllowedipAFamily, nlenc.Uint16Bytes(family))
+
+		attrs.push(wgh.AllowedipAIpaddr, ipn.IP)
+
+		ones, _ := ipn.Mask.Size()
+		attrs.push(wgh.AllowedipACidrMask, []byte{uint8(ones)})
+
+		b, err := netlink.MarshalAttributes(attrs)
+		if err != nil {
+			return nil, err
+		}
+
+		// Netlink arrays use type as an array index.
+		ipArr.push(uint16(i), b)
 	}
 
-	var attrs nlAttrs
-
-	family := uint16(unix.AF_INET)
-	if isIPv6(ipn.IP) {
-		family = unix.AF_INET6
-	}
-	attrs.push(wgh.AllowedipAFamily, nlenc.Uint16Bytes(family))
-
-	attrs.push(wgh.AllowedipAIpaddr, ipn.IP)
-
-	ones, _ := ipn.Mask.Size()
-	attrs.push(wgh.AllowedipACidrMask, []byte{uint8(ones)})
-
-	return netlink.MarshalAttributes(attrs)
+	return netlink.MarshalAttributes(ipArr)
 }
 
 // nlAttrs is a slice of netlink.Attributes.

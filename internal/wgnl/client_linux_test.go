@@ -3,6 +3,7 @@
 package wgnl
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"syscall"
@@ -296,44 +297,18 @@ func diffAttrs(x, y []netlink.Attribute) string {
 }
 
 func mustAllowedIPs(ipns []net.IPNet) []byte {
-	var attrs []netlink.Attribute
-	for i, ipn := range ipns {
-		var (
-			ip     = ipn.IP
-			family = uint16(unix.AF_INET6)
-		)
-
-		if ip4 := ip.To4(); ip4 != nil {
-			ip = ip4
-			family = unix.AF_INET
-		}
-
-		ones, _ := ipn.Mask.Size()
-
-		data := nltest.MustMarshalAttributes([]netlink.Attribute{
-			{
-				Type: wgh.AllowedipAFamily,
-				Data: nlenc.Uint16Bytes(family),
-			},
-			{
-				Type: wgh.AllowedipAIpaddr,
-				Data: ip,
-			},
-			{
-				Type: wgh.AllowedipACidrMask,
-				Data: nlenc.Uint8Bytes(uint8(ones)),
-			},
-		})
-
-		attrs = append(attrs, netlink.Attribute{
-			Type: uint16(i),
-			Data: data,
-		})
+	b, err := allowedIPBytes(ipns)
+	if err != nil {
+		panicf("failed to create allowed IP attributes: %v", err)
 	}
 
-	return nltest.MustMarshalAttributes(attrs)
+	return b
 }
 
 func durPtr(d time.Duration) *time.Duration { return &d }
 func keyPtr(k wgtypes.Key) *wgtypes.Key     { return &k }
 func intPtr(v int) *int                     { return &v }
+
+func panicf(format string, a ...interface{}) {
+	panic(fmt.Sprintf(format, a...))
+}
