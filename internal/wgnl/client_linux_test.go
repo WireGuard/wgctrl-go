@@ -3,6 +3,7 @@
 package wgnl
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -618,34 +619,10 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 }
 
 func TestLinuxClientConfigureDevice(t *testing.T) {
-	attrsEqual := cmp.Comparer(func(x, y []netlink.Attribute) bool {
-		// Different lengths, not equal.
-		if len(x) != len(y) {
-			return false
-		}
-
-		// Make copies to avoid a race and then zero out length values
-		// for comparison.
-		xPrime := make([]netlink.Attribute, len(x))
-		copy(xPrime, x)
-
-		yPrime := make([]netlink.Attribute, len(y))
-		copy(yPrime, y)
-
-		for i := 0; i < len(xPrime); i++ {
-			xPrime[i].Length = 0
-			yPrime[i].Length = 0
-		}
-
-		return cmp.Equal(xPrime, yPrime)
-	})
-
 	nameAttr := netlink.Attribute{
 		Type: wgh.DeviceAIfname,
 		Data: nlenc.Bytes(okName),
 	}
-
-	priv := mustPrivateKey()
 
 	tests := []struct {
 		name  string
@@ -653,6 +630,26 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 		attrs []netlink.Attribute
 		ok    bool
 	}{
+		{
+			name: "bad peer endpoint",
+			cfg: wgtypes.Config{
+				Peers: []wgtypes.PeerConfig{{
+					Endpoint: &net.UDPAddr{
+						IP: net.IP{0xff},
+					},
+				}},
+			},
+		},
+		{
+			name: "bad peer allowed IP",
+			cfg: wgtypes.Config{
+				Peers: []wgtypes.PeerConfig{{
+					AllowedIPs: []net.IPNet{{
+						IP: net.IP{0xff},
+					}},
+				}},
+			},
+		},
 		{
 			name: "ok, none",
 			attrs: []netlink.Attribute{
@@ -663,15 +660,49 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 		{
 			name: "ok, all",
 			cfg: wgtypes.Config{
-				PrivateKey:   &priv,
+				PrivateKey:   keyPtr(mustHexKey("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a")),
 				ListenPort:   intPtr(12912),
 				FirewallMark: intPtr(0),
+				ReplacePeers: true,
+				Peers: []wgtypes.PeerConfig{
+					{
+						PublicKey:         mustHexKey("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
+						PresharedKey:      keyPtr(mustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
+						Endpoint:          mustUDPAddr("[abcd:23::33%2]:51820"),
+						ReplaceAllowedIPs: true,
+						AllowedIPs: []net.IPNet{
+							mustCIDR("192.168.4.4/32"),
+						},
+					},
+					{
+						PublicKey:                   mustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
+						Endpoint:                    mustUDPAddr("182.122.22.19:3233"),
+						PersistentKeepaliveInterval: durPtr(111 * time.Second),
+						ReplaceAllowedIPs:           true,
+						AllowedIPs: []net.IPNet{
+							mustCIDR("192.168.4.6/32"),
+						},
+					},
+					{
+						PublicKey:         mustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
+						Endpoint:          mustUDPAddr("5.152.198.39:51820"),
+						ReplaceAllowedIPs: true,
+						AllowedIPs: []net.IPNet{
+							mustCIDR("192.168.4.10/32"),
+							mustCIDR("192.168.4.11/32"),
+						},
+					},
+					{
+						PublicKey: mustHexKey("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
+						Remove:    true,
+					},
+				},
 			},
 			attrs: []netlink.Attribute{
 				nameAttr,
 				{
 					Type: wgh.DeviceAPrivateKey,
-					Data: priv[:],
+					Data: keyBytes(mustHexKey("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a")),
 				},
 				{
 					Type: wgh.DeviceAListenPort,
@@ -680,6 +711,124 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 				{
 					Type: wgh.DeviceAFwmark,
 					Data: nlenc.Uint32Bytes(0),
+				},
+				{
+					Type: wgh.DeviceAFlags,
+					Data: nlenc.Uint32Bytes(wgh.DeviceFReplacePeers),
+				},
+				{
+					Type: wgh.DeviceAPeers,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: 0,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: wgh.PeerAPublicKey,
+									Data: keyBytes(mustHexKey("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33")),
+								},
+								{
+									Type: wgh.PeerAFlags,
+									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+								},
+								{
+									Type: wgh.PeerAPresharedKey,
+									Data: keyBytes(mustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
+								},
+								{
+									Type: wgh.PeerAEndpoint,
+									Data: (*(*[unix.SizeofSockaddrInet6]byte)(unsafe.Pointer(&unix.RawSockaddrInet6{
+										Family: unix.AF_INET6,
+										Addr: [16]byte{
+											0xab, 0xcd, 0x00, 0x23,
+											0x00, 0x00, 0x00, 0x00,
+											0x00, 0x00, 0x00, 0x00,
+											0x00, 0x00, 0x00, 0x33,
+										},
+										Port: 51820,
+									})))[:],
+								},
+								{
+									Type: wgh.PeerAAllowedips,
+									Data: mustAllowedIPs([]net.IPNet{
+										mustCIDR("192.168.4.4/32"),
+									}),
+								},
+							}),
+						},
+						{
+							Type: 1,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: wgh.PeerAPublicKey,
+									Data: keyBytes(mustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376")),
+								},
+								{
+									Type: wgh.PeerAFlags,
+									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+								},
+								{
+									Type: wgh.PeerAEndpoint,
+									Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
+										Family: unix.AF_INET,
+										Addr:   [4]byte{182, 122, 22, 19},
+										Port:   3233,
+									})))[:],
+								},
+								{
+									Type: wgh.PeerAPersistentKeepaliveInterval,
+									Data: nlenc.Uint16Bytes(111),
+								},
+								{
+									Type: wgh.PeerAAllowedips,
+									Data: mustAllowedIPs([]net.IPNet{
+										mustCIDR("192.168.4.6/32"),
+									}),
+								},
+							}),
+						},
+
+						{
+							Type: 2,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: wgh.PeerAPublicKey,
+									Data: keyBytes(mustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58")),
+								},
+								{
+									Type: wgh.PeerAFlags,
+									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+								},
+								{
+									Type: wgh.PeerAEndpoint,
+									Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
+										Family: unix.AF_INET,
+										Addr:   [4]byte{5, 152, 198, 39},
+										Port:   51820,
+									})))[:],
+								},
+								{
+									Type: wgh.PeerAAllowedips,
+									Data: mustAllowedIPs([]net.IPNet{
+										mustCIDR("192.168.4.10/32"),
+										mustCIDR("192.168.4.11/32"),
+									}),
+								},
+							}),
+						},
+						{
+							Type: 3,
+							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+								{
+									Type: wgh.PeerAPublicKey,
+									Data: keyBytes(mustHexKey("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c")),
+								},
+								{
+									Type: wgh.PeerAFlags,
+									Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
+								},
+							}),
+						},
+					}),
 				},
 			},
 			ok: true,
@@ -699,7 +848,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 					return nil, err
 				}
 
-				if diff := cmp.Diff(tt.attrs, attrs, attrsEqual); diff != "" {
+				if diff := diffAttrs(tt.attrs, attrs); diff != "" {
 					t.Fatalf("unexpected request attributes (-want +got):\n%s", diff)
 				}
 
@@ -857,6 +1006,26 @@ func testClient(t *testing.T, fn genltest.Func) *client {
 	return c
 }
 
+func diffAttrs(x, y []netlink.Attribute) string {
+	// Make copies to avoid a race and then zero out length values
+	// for comparison.
+	xPrime := make([]netlink.Attribute, len(x))
+	copy(xPrime, x)
+
+	for i := 0; i < len(xPrime); i++ {
+		xPrime[i].Length = 0
+	}
+
+	yPrime := make([]netlink.Attribute, len(y))
+	copy(yPrime, y)
+
+	for i := 0; i < len(yPrime); i++ {
+		yPrime[i].Length = 0
+	}
+
+	return cmp.Diff(xPrime, yPrime)
+}
+
 func mustCIDR(s string) net.IPNet {
 	_, cidr, err := net.ParseCIDR(s)
 	if err != nil {
@@ -883,16 +1052,16 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 
 		data := nltest.MustMarshalAttributes([]netlink.Attribute{
 			{
+				Type: wgh.AllowedipAFamily,
+				Data: nlenc.Uint16Bytes(family),
+			},
+			{
 				Type: wgh.AllowedipAIpaddr,
 				Data: ip,
 			},
 			{
 				Type: wgh.AllowedipACidrMask,
 				Data: nlenc.Uint8Bytes(uint8(ones)),
-			},
-			{
-				Type: wgh.AllowedipAFamily,
-				Data: nlenc.Uint16Bytes(family),
 			},
 		})
 
@@ -924,4 +1093,39 @@ func intPtr(v int) *int {
 
 func panicf(format string, a ...interface{}) {
 	panic(fmt.Sprintf(format, a...))
+}
+
+func durPtr(d time.Duration) *time.Duration {
+	return &d
+}
+
+func keyPtr(k wgtypes.Key) *wgtypes.Key {
+	return &k
+}
+
+func keyBytes(k wgtypes.Key) []byte {
+	return k[:]
+}
+
+func mustHexKey(s string) wgtypes.Key {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panicf("failed to decode hex key: %v", err)
+	}
+
+	k, err := wgtypes.NewKey(b)
+	if err != nil {
+		panicf("failed to create key: %v", err)
+	}
+
+	return k
+}
+
+func mustUDPAddr(s string) *net.UDPAddr {
+	a, err := net.ResolveUDPAddr("udp", s)
+	if err != nil {
+		panicf("failed to resolve UDP address: %v", err)
+	}
+
+	return a
 }
