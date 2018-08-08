@@ -79,6 +79,15 @@ func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	t.Helper()
 
+	// Initial values, incremented for each device.
+	var (
+		port = 8888
+		ips  = []net.IPNet{
+			mustCIDR("192.0.2.0/32"),
+			mustCIDR("2001:db8::/128"),
+		}
+	)
+
 	for _, d := range devices {
 		t.Logf("before: %s: %s", d.Name, d.PublicKey.String())
 
@@ -88,13 +97,15 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 		}
 
 		var (
-			port    = 8888
 			peerKey = mustPublicKey()
-			ips     = []net.IPNet{
-				mustCIDR("192.0.2.0/24"),
-				mustCIDR("2001:db8::/64"),
-			}
 		)
+
+		// Increment some values to avoid collisions.
+		port++
+		for i := range ips {
+			// Increment the last IP byte by 1.
+			ips[i].IP[len(ips[i].IP)-1]++
+		}
 
 		cfg := wgtypes.Config{
 			PrivateKey:   &priv,
