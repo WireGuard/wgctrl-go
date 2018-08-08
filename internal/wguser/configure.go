@@ -53,7 +53,7 @@ func configureDevice(path string, cfg wgtypes.Config) error {
 // writeConfig writes textual configuration to w as specified by cfg.
 func writeConfig(w io.Writer, cfg wgtypes.Config) {
 	if cfg.PrivateKey != nil {
-		fmt.Fprintf(w, "private_key=%s\n", hex.EncodeToString((*cfg.PrivateKey)[:]))
+		fmt.Fprintf(w, "private_key=%s\n", hexKey(*cfg.PrivateKey))
 	}
 
 	if cfg.ListenPort != nil {
@@ -63,4 +63,41 @@ func writeConfig(w io.Writer, cfg wgtypes.Config) {
 	if cfg.FirewallMark != nil {
 		fmt.Fprintf(w, "fwmark=%d\n", *cfg.FirewallMark)
 	}
+
+	if cfg.ReplacePeers {
+		fmt.Fprintf(w, "replace_peers=true\n")
+	}
+
+	for _, p := range cfg.Peers {
+		fmt.Fprintf(w, "public_key=%s\n", hexKey(p.PublicKey))
+
+		if p.Remove {
+			fmt.Fprintf(w, "remove=true\n")
+		}
+
+		if p.PresharedKey != nil {
+			fmt.Fprintf(w, "preshared_key=%s\n", hexKey(*p.PresharedKey))
+		}
+
+		if p.Endpoint != nil {
+			fmt.Fprintf(w, "endpoint=%s\n", p.Endpoint.String())
+		}
+
+		if p.PersistentKeepaliveInterval != nil {
+			fmt.Fprintf(w, "persistent_keepalive_interval=%d\n", int(p.PersistentKeepaliveInterval.Seconds()))
+		}
+
+		if p.ReplaceAllowedIPs {
+			fmt.Fprintf(w, "replace_allowed_ips=true\n")
+		}
+
+		for _, ip := range p.AllowedIPs {
+			fmt.Fprintf(w, "allowed_ip=%s\n", ip.String())
+		}
+	}
+}
+
+// hexKey encodes a wgtypes.Key into a hexadecimal string.
+func hexKey(k wgtypes.Key) string {
+	return hex.EncodeToString(k[:])
 }

@@ -29,6 +29,12 @@ const keyLen = 32 // wgh.KeyLen
 // these applications.
 type Key [keyLen]byte
 
+// ClearKey produces an empty Key suitable for use in Config and PeerConfig
+// to clear a Key field for a device or peer.
+func ClearKey() *Key {
+	return &Key{}
+}
+
 // GenerateKey generates a Key suitable for use as a pre-shared secret key from
 // a cryptographically safe source.
 //
@@ -109,8 +115,8 @@ type Peer struct {
 // A Config is a WireGuard device configuration.
 //
 // Because the zero value of some Go types may be significant to WireGuard for
-// Config fields, only fields which are not nil will be applied when
-// configuring a device.
+// Config fields, pointer types are used for some of these fields. Only
+// pointer fields which are not nil will be applied when configuring a device.
 type Config struct {
 	// PrivateKey specifies a private key configuration, if not nil.
 	//
@@ -124,4 +130,49 @@ type Config struct {
 	//
 	// If non-nil and set to 0, the firewall mark will be cleared.
 	FirewallMark *int
+
+	// ReplacePeers specifies if the Peers in this configuration should replace
+	// the existing peer list, instead of appending them to the existing list.
+	ReplacePeers bool
+
+	// Peers specifies a list of peer configurations to apply to a device.
+	Peers []PeerConfig
+}
+
+// A PeerConfig is a WireGuard device peer configuration.
+//
+// Because the zero value of some Go types may be significant to WireGuard for
+// PeerConfig fields, pointer types are used for some of these fields. Only
+// pointer fields which are not nil will be applied when configuring a peer.
+type PeerConfig struct {
+	// PublicKey specifies the public key of this peer.  PublicKey is a
+	// mandatory field for all PeerConfigs.
+	PublicKey Key
+
+	// Remove specifies if the peer with this public key should be removed
+	// from a device's peer list.
+	Remove bool
+
+	// PresharedKey specifies a peer's preshared key configuration, if not nil.
+	//
+	// A non-nil, zero-value, Key will clear the preshared key.
+	PresharedKey *Key
+
+	// Endpoint specifies the endpoint of this peer entry, if not nil.
+	Endpoint *net.UDPAddr
+
+	// PersistentKeepaliveInterval specifies the persistent keepalive interval
+	// for this peer, if not nil.
+	//
+	// A non-nil value of 0 will clear the persistent keepalive interval.
+	PersistentKeepaliveInterval *time.Duration
+
+	// ReplaceAllowedIPs specifies if the allowed IPs specified in this peer
+	// configuration should replace any existing ones, instead of appending them
+	// to the allowed IPs list.
+	ReplaceAllowedIPs bool
+
+	// AllowedIPs specifies a list of allowed IP addresses in CIDR notation
+	// for this peer.
+	AllowedIPs []net.IPNet
 }

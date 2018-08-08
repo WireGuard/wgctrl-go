@@ -1,6 +1,7 @@
 package wguser
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -47,6 +48,24 @@ const okSet = `set=1
 private_key=e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a
 listen_port=12912
 fwmark=0
+replace_peers=true
+public_key=b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33
+preshared_key=188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52
+endpoint=[abcd:23::33%2]:51820
+replace_allowed_ips=true
+allowed_ip=192.168.4.4/32
+public_key=58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376
+endpoint=182.122.22.19:3233
+persistent_keepalive_interval=111
+replace_allowed_ips=true
+allowed_ip=192.168.4.6/32
+public_key=662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58
+endpoint=5.152.198.39:51820
+replace_allowed_ips=true
+allowed_ip=192.168.4.10/32
+allowed_ip=192.168.4.11/32
+public_key=e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c
+remove=true
 
 `
 
@@ -282,11 +301,52 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 			req:  "set=1\n\n",
 		},
 		{
+			name: "ok, clear key",
+			cfg: wgtypes.Config{
+				PrivateKey: wgtypes.ClearKey(),
+			},
+			req: "set=1\nprivate_key=0000000000000000000000000000000000000000000000000000000000000000\n\n",
+		},
+		{
 			name: "ok, all",
 			cfg: wgtypes.Config{
-				PrivateKey:   &wgtypes.Key{0xe8, 0x4b, 0x5a, 0x6d, 0x27, 0x17, 0xc1, 0x0, 0x3a, 0x13, 0xb4, 0x31, 0x57, 0x3, 0x53, 0xdb, 0xac, 0xa9, 0x14, 0x6c, 0xf1, 0x50, 0xc5, 0xf8, 0x57, 0x56, 0x80, 0xfe, 0xba, 0x52, 0x2, 0x7a},
+				PrivateKey:   keyPtr(mustHexKey("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a")),
 				ListenPort:   intPtr(12912),
 				FirewallMark: intPtr(0),
+				ReplacePeers: true,
+				Peers: []wgtypes.PeerConfig{
+					{
+						PublicKey:         mustHexKey("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
+						PresharedKey:      keyPtr(mustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
+						Endpoint:          mustUDPAddr("[abcd:23::33%2]:51820"),
+						ReplaceAllowedIPs: true,
+						AllowedIPs: []net.IPNet{
+							mustCIDR("192.168.4.4/32"),
+						},
+					},
+					{
+						PublicKey:                   mustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
+						Endpoint:                    mustUDPAddr("182.122.22.19:3233"),
+						PersistentKeepaliveInterval: durPtr(111 * time.Second),
+						ReplaceAllowedIPs:           true,
+						AllowedIPs: []net.IPNet{
+							mustCIDR("192.168.4.6/32"),
+						},
+					},
+					{
+						PublicKey:         mustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
+						Endpoint:          mustUDPAddr("5.152.198.39:51820"),
+						ReplaceAllowedIPs: true,
+						AllowedIPs: []net.IPNet{
+							mustCIDR("192.168.4.10/32"),
+							mustCIDR("192.168.4.11/32"),
+						},
+					},
+					{
+						PublicKey: mustHexKey("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
+						Remove:    true,
+					},
+				},
 			},
 			req: okSet,
 		},
@@ -302,8 +362,8 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 
 			req := done()
 
-			if diff := cmp.Diff(tt.req, string(req)); diff != "" {
-				t.Fatalf("unexpected configure request (-want +got):\n%s", diff)
+			if want, got := tt.req, string(req); want != got {
+				t.Fatalf("unexpected configure request:\nwant:\n%s\ngot:\n%s", want, got)
 			}
 		})
 	}
@@ -368,7 +428,7 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 
 	// Request is passed to the caller on return from done func.
 	var mu sync.Mutex
-	req := make([]byte, 512)
+	req := make([]byte, 4096)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -422,6 +482,46 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 
 func intPtr(v int) *int {
 	return &v
+}
+
+func durPtr(d time.Duration) *time.Duration {
+	return &d
+}
+
+func keyPtr(k wgtypes.Key) *wgtypes.Key {
+	return &k
+}
+
+func mustHexKey(s string) wgtypes.Key {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panicf("failed to decode hex key: %v", err)
+	}
+
+	k, err := wgtypes.NewKey(b)
+	if err != nil {
+		panicf("failed to create key: %v", err)
+	}
+
+	return k
+}
+
+func mustUDPAddr(s string) *net.UDPAddr {
+	a, err := net.ResolveUDPAddr("udp", s)
+	if err != nil {
+		panicf("failed to resolve UDP address: %v", err)
+	}
+
+	return a
+}
+
+func mustCIDR(s string) net.IPNet {
+	_, cidr, err := net.ParseCIDR(s)
+	if err != nil {
+		panicf("failed to parse CIDR: %v", err)
+	}
+
+	return *cidr
 }
 
 func panicf(format string, a ...interface{}) {
