@@ -3,7 +3,6 @@
 package wgnl
 
 import (
-	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -297,15 +296,6 @@ func diffAttrs(x, y []netlink.Attribute) string {
 	return cmp.Diff(xPrime, yPrime)
 }
 
-func mustCIDR(s string) net.IPNet {
-	_, cidr, err := net.ParseCIDR(s)
-	if err != nil {
-		panicf("failed to parse CIDR: %v", err)
-	}
-
-	return *cidr
-}
-
 func mustAllowedIPs(ipns []net.IPNet) []byte {
 	var attrs []netlink.Attribute
 	for i, ipn := range ipns {
@@ -345,58 +335,10 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 	return nltest.MustMarshalAttributes(attrs)
 }
 
-func mustPrivateKey() wgtypes.Key {
-	k, err := wgtypes.GeneratePrivateKey()
-	if err != nil {
-		panicf("failed to generate private key: %v", err)
-	}
-
-	return k
-}
-
-func mustPublicKey() wgtypes.Key {
-	return mustPrivateKey().PublicKey()
-}
-
-func intPtr(v int) *int {
-	return &v
-}
+func durPtr(d time.Duration) *time.Duration { return &d }
+func keyPtr(k wgtypes.Key) *wgtypes.Key     { return &k }
+func intPtr(v int) *int                     { return &v }
 
 func panicf(format string, a ...interface{}) {
 	panic(fmt.Sprintf(format, a...))
-}
-
-func durPtr(d time.Duration) *time.Duration {
-	return &d
-}
-
-func keyPtr(k wgtypes.Key) *wgtypes.Key {
-	return &k
-}
-
-func keyBytes(k wgtypes.Key) []byte {
-	return k[:]
-}
-
-func mustHexKey(s string) wgtypes.Key {
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		panicf("failed to decode hex key: %v", err)
-	}
-
-	k, err := wgtypes.NewKey(b)
-	if err != nil {
-		panicf("failed to create key: %v", err)
-	}
-
-	return k
-}
-
-func mustUDPAddr(s string) *net.UDPAddr {
-	a, err := net.ResolveUDPAddr("udp", s)
-	if err != nil {
-		panicf("failed to resolve UDP address: %v", err)
-	}
-
-	return a
 }

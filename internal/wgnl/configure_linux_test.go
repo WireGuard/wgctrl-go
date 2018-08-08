@@ -14,6 +14,7 @@ import (
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
 	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
+	"github.com/mdlayher/wireguardctrl/internal/wgtest"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
 )
@@ -60,40 +61,40 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 		{
 			name: "ok, all",
 			cfg: wgtypes.Config{
-				PrivateKey:   keyPtr(mustHexKey("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a")),
+				PrivateKey:   keyPtr(wgtest.MustHexKey("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a")),
 				ListenPort:   intPtr(12912),
 				FirewallMark: intPtr(0),
 				ReplacePeers: true,
 				Peers: []wgtypes.PeerConfig{
 					{
-						PublicKey:         mustHexKey("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
-						PresharedKey:      keyPtr(mustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
-						Endpoint:          mustUDPAddr("[abcd:23::33%2]:51820"),
+						PublicKey:         wgtest.MustHexKey("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
+						PresharedKey:      keyPtr(wgtest.MustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
+						Endpoint:          wgtest.MustUDPAddr("[abcd:23::33%2]:51820"),
 						ReplaceAllowedIPs: true,
 						AllowedIPs: []net.IPNet{
-							mustCIDR("192.168.4.4/32"),
+							wgtest.MustCIDR("192.168.4.4/32"),
 						},
 					},
 					{
-						PublicKey:                   mustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
-						Endpoint:                    mustUDPAddr("182.122.22.19:3233"),
+						PublicKey:                   wgtest.MustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
+						Endpoint:                    wgtest.MustUDPAddr("182.122.22.19:3233"),
 						PersistentKeepaliveInterval: durPtr(111 * time.Second),
 						ReplaceAllowedIPs:           true,
 						AllowedIPs: []net.IPNet{
-							mustCIDR("192.168.4.6/32"),
+							wgtest.MustCIDR("192.168.4.6/32"),
 						},
 					},
 					{
-						PublicKey:         mustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
-						Endpoint:          mustUDPAddr("5.152.198.39:51820"),
+						PublicKey:         wgtest.MustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
+						Endpoint:          wgtest.MustUDPAddr("5.152.198.39:51820"),
 						ReplaceAllowedIPs: true,
 						AllowedIPs: []net.IPNet{
-							mustCIDR("192.168.4.10/32"),
-							mustCIDR("192.168.4.11/32"),
+							wgtest.MustCIDR("192.168.4.10/32"),
+							wgtest.MustCIDR("192.168.4.11/32"),
 						},
 					},
 					{
-						PublicKey: mustHexKey("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
+						PublicKey: wgtest.MustHexKey("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
 						Remove:    true,
 					},
 				},
@@ -102,7 +103,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 				nameAttr,
 				{
 					Type: wgh.DeviceAPrivateKey,
-					Data: keyBytes(mustHexKey("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a")),
+					Data: keyBytes("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a"),
 				},
 				{
 					Type: wgh.DeviceAListenPort,
@@ -124,7 +125,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
-									Data: keyBytes(mustHexKey("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33")),
+									Data: keyBytes("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
 								},
 								{
 									Type: wgh.PeerAFlags,
@@ -132,7 +133,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								},
 								{
 									Type: wgh.PeerAPresharedKey,
-									Data: keyBytes(mustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
+									Data: keyBytes("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52"),
 								},
 								{
 									Type: wgh.PeerAEndpoint,
@@ -150,7 +151,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								{
 									Type: wgh.PeerAAllowedips,
 									Data: mustAllowedIPs([]net.IPNet{
-										mustCIDR("192.168.4.4/32"),
+										wgtest.MustCIDR("192.168.4.4/32"),
 									}),
 								},
 							}),
@@ -160,7 +161,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
-									Data: keyBytes(mustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376")),
+									Data: keyBytes("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
 								},
 								{
 									Type: wgh.PeerAFlags,
@@ -181,7 +182,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								{
 									Type: wgh.PeerAAllowedips,
 									Data: mustAllowedIPs([]net.IPNet{
-										mustCIDR("192.168.4.6/32"),
+										wgtest.MustCIDR("192.168.4.6/32"),
 									}),
 								},
 							}),
@@ -192,7 +193,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
-									Data: keyBytes(mustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58")),
+									Data: keyBytes("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
 								},
 								{
 									Type: wgh.PeerAFlags,
@@ -209,8 +210,8 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								{
 									Type: wgh.PeerAAllowedips,
 									Data: mustAllowedIPs([]net.IPNet{
-										mustCIDR("192.168.4.10/32"),
-										mustCIDR("192.168.4.11/32"),
+										wgtest.MustCIDR("192.168.4.10/32"),
+										wgtest.MustCIDR("192.168.4.11/32"),
 									}),
 								},
 							}),
@@ -220,7 +221,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
-									Data: keyBytes(mustHexKey("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c")),
+									Data: keyBytes("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
 								},
 								{
 									Type: wgh.PeerAFlags,
@@ -269,4 +270,9 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 			}
 		})
 	}
+}
+
+func keyBytes(s string) []byte {
+	k := wgtest.MustHexKey(s)
+	return k[:]
 }

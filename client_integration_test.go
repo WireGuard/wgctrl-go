@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/mdlayher/wireguardctrl"
+	"github.com/mdlayher/wireguardctrl/internal/wgtest"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
 
@@ -83,8 +84,8 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 	var (
 		port = 8888
 		ips  = []net.IPNet{
-			mustCIDR("192.0.2.0/32"),
-			mustCIDR("2001:db8::/128"),
+			wgtest.MustCIDR("192.0.2.0/32"),
+			wgtest.MustCIDR("2001:db8::/128"),
 		}
 	)
 
@@ -97,7 +98,7 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 		}
 
 		var (
-			peerKey = mustPublicKey()
+			peerKey = wgtest.MustPublicKey()
 		)
 
 		// Increment some values to avoid collisions.
@@ -162,26 +163,4 @@ func ipsString(ipns []net.IPNet) string {
 	}
 
 	return strings.Join(ss, ", ")
-}
-
-func mustPublicKey() wgtypes.Key {
-	k, err := wgtypes.GeneratePrivateKey()
-	if err != nil {
-		panicf("failed to generate private key: %v", err)
-	}
-
-	return k.PublicKey()
-}
-
-func mustCIDR(s string) net.IPNet {
-	_, cidr, err := net.ParseCIDR(s)
-	if err != nil {
-		panicf("failed to parse CIDR: %v", err)
-	}
-
-	return *cidr
-}
-
-func panicf(format string, a ...interface{}) {
-	panic(fmt.Sprintf(format, a...))
 }

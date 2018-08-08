@@ -15,6 +15,7 @@ import (
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
 	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
+	"github.com/mdlayher/wireguardctrl/internal/wgtest"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
 )
@@ -109,9 +110,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 
 	var (
 		testKey wgtypes.Key
-		keyA    = mustPublicKey()
-		keyB    = mustPublicKey()
-		keyC    = mustPublicKey()
+		keyA    = wgtest.MustPublicKey()
+		keyB    = wgtest.MustPublicKey()
+		keyC    = wgtest.MustPublicKey()
 	)
 
 	testKey[0] = 0xff
@@ -233,8 +234,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									{
 										Type: wgh.PeerAAllowedips,
 										Data: mustAllowedIPs([]net.IPNet{
-											mustCIDR("192.168.1.10/32"),
-											mustCIDR("fd00::1/128"),
+											wgtest.MustCIDR("192.168.1.10/32"),
+											wgtest.MustCIDR("fd00::1/128"),
 										}),
 									},
 								}),
@@ -286,8 +287,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 							ReceiveBytes:                100,
 							TransmitBytes:               200,
 							AllowedIPs: []net.IPNet{
-								mustCIDR("192.168.1.10/32"),
-								mustCIDR("fd00::1/128"),
+								wgtest.MustCIDR("192.168.1.10/32"),
+								wgtest.MustCIDR("fd00::1/128"),
 							},
 						},
 						{
@@ -328,8 +329,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 										{
 											Type: wgh.PeerAAllowedips,
 											Data: mustAllowedIPs([]net.IPNet{
-												mustCIDR("192.168.1.10/32"),
-												mustCIDR("192.168.1.11/32"),
+												wgtest.MustCIDR("192.168.1.10/32"),
+												wgtest.MustCIDR("192.168.1.11/32"),
 											}),
 										},
 									}),
@@ -354,8 +355,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 										{
 											Type: wgh.PeerAAllowedips,
 											Data: mustAllowedIPs([]net.IPNet{
-												mustCIDR("fd00:dead:beef:dead::/64"),
-												mustCIDR("fd00:dead:beef:ffff::/64"),
+												wgtest.MustCIDR("fd00:dead:beef:dead::/64"),
+												wgtest.MustCIDR("fd00:dead:beef:ffff::/64"),
 											}),
 										},
 									}),
@@ -370,8 +371,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 										{
 											Type: wgh.PeerAAllowedips,
 											Data: mustAllowedIPs([]net.IPNet{
-												mustCIDR("10.10.10.0/24"),
-												mustCIDR("10.10.11.0/24"),
+												wgtest.MustCIDR("10.10.10.0/24"),
+												wgtest.MustCIDR("10.10.11.0/24"),
 											}),
 										},
 									}),
@@ -396,8 +397,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 										{
 											Type: wgh.PeerAAllowedips,
 											Data: mustAllowedIPs([]net.IPNet{
-												mustCIDR("10.10.12.0/24"),
-												mustCIDR("10.10.13.0/24"),
+												wgtest.MustCIDR("10.10.12.0/24"),
+												wgtest.MustCIDR("10.10.13.0/24"),
 											}),
 										},
 									}),
@@ -412,8 +413,8 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 										{
 											Type: wgh.PeerAAllowedips,
 											Data: mustAllowedIPs([]net.IPNet{
-												mustCIDR("fd00:1234::/32"),
-												mustCIDR("fd00:4567::/32"),
+												wgtest.MustCIDR("fd00:1234::/32"),
+												wgtest.MustCIDR("fd00:4567::/32"),
 											}),
 										},
 									}),
@@ -431,26 +432,26 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 						{
 							PublicKey: keyA,
 							AllowedIPs: []net.IPNet{
-								mustCIDR("192.168.1.10/32"),
-								mustCIDR("192.168.1.11/32"),
-								mustCIDR("fd00:dead:beef:dead::/64"),
-								mustCIDR("fd00:dead:beef:ffff::/64"),
+								wgtest.MustCIDR("192.168.1.10/32"),
+								wgtest.MustCIDR("192.168.1.11/32"),
+								wgtest.MustCIDR("fd00:dead:beef:dead::/64"),
+								wgtest.MustCIDR("fd00:dead:beef:ffff::/64"),
 							},
 						},
 						{
 							PublicKey: keyB,
 							AllowedIPs: []net.IPNet{
-								mustCIDR("10.10.10.0/24"),
-								mustCIDR("10.10.11.0/24"),
-								mustCIDR("10.10.12.0/24"),
-								mustCIDR("10.10.13.0/24"),
+								wgtest.MustCIDR("10.10.10.0/24"),
+								wgtest.MustCIDR("10.10.11.0/24"),
+								wgtest.MustCIDR("10.10.12.0/24"),
+								wgtest.MustCIDR("10.10.13.0/24"),
 							},
 						},
 						{
 							PublicKey: keyC,
 							AllowedIPs: []net.IPNet{
-								mustCIDR("fd00:1234::/32"),
-								mustCIDR("fd00:4567::/32"),
+								wgtest.MustCIDR("fd00:1234::/32"),
+								wgtest.MustCIDR("fd00:4567::/32"),
 							},
 						},
 					},
