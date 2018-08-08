@@ -3,7 +3,6 @@
 package wgnl
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"syscall"
@@ -338,7 +337,3 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 func durPtr(d time.Duration) *time.Duration { return &d }
 func keyPtr(k wgtypes.Key) *wgtypes.Key     { return &k }
 func intPtr(v int) *int                     { return &v }
-
-func panicf(format string, a ...interface{}) {
-	panic(fmt.Sprintf(format, a...))
-}
