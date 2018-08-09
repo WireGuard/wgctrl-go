@@ -36,55 +36,69 @@ func TestClientIntegration(t *testing.T) {
 		t.Skipf("skipping, failed to get devices: %v", err)
 	}
 
-	t.Run("get", func(t *testing.T) {
-		testGet(t, c, devices)
-	})
+	tests := []struct {
+		name string
+		fn   func(t *testing.T, c *wireguardctrl.Client, d wgtypes.Device)
+	}{
+		{
+			name: "get",
+			fn:   testGet,
+		},
+		{
+			name: "configure",
+			fn:   testConfigure,
+		},
+		{
+			name: "configure many IPs",
+			fn:   testConfigureManyIPs,
+		},
+	}
 
-	t.Run("configure", func(t *testing.T) {
-		testConfigure(t, c, devices)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, d := range devices {
+				t.Run(d.Name, func(t *testing.T) {
+					// Dereference pointers so each test gets its own copy of d.
+					tt.fn(t, c, *d)
 
-	t.Run("configure many IPs", func(t *testing.T) {
-		testConfigureManyIPs(t, c, devices)
-	})
-}
-
-func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
-	t.Helper()
-
-	for _, d := range devices {
-		t.Logf("device: %s: %s", d.Name, d.PublicKey.String())
-
-		dn, err := c.DeviceByName(d.Name)
-		if err != nil {
-			t.Fatalf("failed to get %q by name: %v", d.Name, err)
-		}
-
-		if diff := cmp.Diff(d, dn); diff != "" {
-			t.Fatalf("unexpected Device from DeviceByName (-want +got):\n%s", diff)
-		}
-
-		// Fetch the interface index of the device to verify it can be fetched
-		// properly by that index.
-		ifi, err := net.InterfaceByName(d.Name)
-		if err != nil {
-			t.Fatalf("failed to get %q network interface: %v", d.Name, err)
-		}
-
-		di, err := c.DeviceByIndex(ifi.Index)
-		if err != nil {
-			t.Fatalf("failed to get %q by index: %v", d.Name, err)
-		}
-
-		if diff := cmp.Diff(d, di); diff != "" {
-			t.Fatalf("unexpected Device from DeviceByIndex (-want +got):\n%s", diff)
-		}
+					// Reset the device between tests to ensure a clean slate.
+					resetDevice(t, c, d.Name)
+				})
+			}
+		})
 	}
 }
 
-func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
-	t.Helper()
+func testGet(t *testing.T, c *wireguardctrl.Client, d wgtypes.Device) {
+	t.Logf("device: %s: %s", d.Name, d.PublicKey.String())
 
+	dn, err := c.DeviceByName(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get %q by name: %v", d.Name, err)
+	}
+
+	if diff := cmp.Diff(d, *dn); diff != "" {
+		t.Fatalf("unexpected Device from DeviceByName (-want +got):\n%s", diff)
+	}
+
+	// Fetch the interface index of the device to verify it can be fetched
+	// properly by that index.
+	ifi, err := net.InterfaceByName(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get %q network interface: %v", d.Name, err)
+	}
+
+	di, err := c.DeviceByIndex(ifi.Index)
+	if err != nil {
+		t.Fatalf("failed to get %q by index: %v", d.Name, err)
+	}
+
+	if diff := cmp.Diff(d, *di); diff != "" {
+		t.Fatalf("unexpected Device from DeviceByIndex (-want +got):\n%s", diff)
+	}
+}
+
+func testConfigure(t *testing.T, c *wireguardctrl.Client, d wgtypes.Device) {
 	// Initial values, incremented for each device.
 	var (
 		port = 8888
@@ -94,128 +108,142 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 		}
 	)
 
-	for _, d := range devices {
-		t.Logf("before: %s: %s", d.Name, d.PublicKey.String())
+	t.Logf("before: %s: %s", d.Name, d.PublicKey.String())
 
-		priv, err := wgtypes.GeneratePrivateKey()
-		if err != nil {
-			t.Fatalf("failed to generate private key: %v", err)
-		}
-
-		var (
-			peerKey = wgtest.MustPublicKey()
-		)
-
-		// Increment some values to avoid collisions.
-		port++
-		for i := range ips {
-			// Increment the last IP byte by 1.
-			ips[i].IP[len(ips[i].IP)-1]++
-		}
-
-		cfg := wgtypes.Config{
-			PrivateKey:   &priv,
-			ListenPort:   &port,
-			ReplacePeers: true,
-			Peers: []wgtypes.PeerConfig{{
-				PublicKey:         peerKey,
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        ips,
-			}},
-		}
-
-		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
-			t.Fatalf("failed to configure %q: %v", d.Name, err)
-		}
-
-		dn, err := c.DeviceByName(d.Name)
-		if err != nil {
-			t.Fatalf("failed to get %q by name: %v", d.Name, err)
-		}
-
-		// Now that a new configuration has been applied, update our initial
-		// device for comparison.
-		*d = wgtypes.Device{
-			Name:       d.Name,
-			PrivateKey: priv,
-			PublicKey:  priv.PublicKey(),
-			ListenPort: port,
-			Peers: []wgtypes.Peer{{
-				PublicKey:         peerKey,
-				LastHandshakeTime: time.Unix(0, 0),
-				AllowedIPs:        ips,
-			}},
-		}
-
-		if diff := cmp.Diff(d, dn); diff != "" {
-			t.Fatalf("unexpected Device from DeviceByName (-want +got):\n%s", diff)
-		}
-
-		// Leading space for alignment.
-		out := fmt.Sprintf(" after: %s: %s\n", dn.Name, dn.PublicKey.String())
-		for _, p := range dn.Peers {
-			out += fmt.Sprintf("- peer: %s, IPs: %s\n", p.PublicKey.String(), ipsString(p.AllowedIPs))
-		}
-
-		t.Log(out)
+	priv, err := wgtypes.GeneratePrivateKey()
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
 	}
+
+	var (
+		peerKey = wgtest.MustPublicKey()
+	)
+
+	// Increment some values to avoid collisions.
+	port++
+	for i := range ips {
+		// Increment the last IP byte by 1.
+		ips[i].IP[len(ips[i].IP)-1]++
+	}
+
+	cfg := wgtypes.Config{
+		PrivateKey:   &priv,
+		ListenPort:   &port,
+		ReplacePeers: true,
+		Peers: []wgtypes.PeerConfig{{
+			PublicKey:         peerKey,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        ips,
+		}},
+	}
+
+	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+		t.Fatalf("failed to configure %q: %v", d.Name, err)
+	}
+
+	dn, err := c.DeviceByName(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get %q by name: %v", d.Name, err)
+	}
+
+	// Now that a new configuration has been applied, update our initial
+	// device for comparison.
+	d = wgtypes.Device{
+		Name:       d.Name,
+		PrivateKey: priv,
+		PublicKey:  priv.PublicKey(),
+		ListenPort: port,
+		Peers: []wgtypes.Peer{{
+			PublicKey:         peerKey,
+			LastHandshakeTime: time.Unix(0, 0),
+			AllowedIPs:        ips,
+		}},
+	}
+
+	if diff := cmp.Diff(d, *dn); diff != "" {
+		t.Fatalf("unexpected Device from DeviceByName (-want +got):\n%s", diff)
+	}
+
+	// Leading space for alignment.
+	out := fmt.Sprintf(" after: %s: %s\n", dn.Name, dn.PublicKey.String())
+	for _, p := range dn.Peers {
+		out += fmt.Sprintf("- peer: %s, IPs: %s\n", p.PublicKey.String(), ipsString(p.AllowedIPs))
+	}
+
+	t.Log(out)
 }
 
-func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
-	t.Helper()
-
+func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, d wgtypes.Device) {
 	timer := time.AfterFunc(5*time.Second, func() {
 		panic("configuring peer IPs took too long")
 	})
 	defer timer.Stop()
 
-	for _, d := range devices {
-		// TODO(mdlayher): apply a second subnet of IPs once potential bug
-		// is resolved.
+	// TODO(mdlayher): apply a second subnet of IPs once potential bug
+	// is resolved.
 
-		// Apply 511 IPs.
-		cur, err := ipaddr.Parse("2001:db8::/119")
-		if err != nil {
-			t.Fatalf("failed to create cursor: %v", err)
+	// Apply 511 IPs.
+	cur, err := ipaddr.Parse("2001:db8::/119")
+	if err != nil {
+		t.Fatalf("failed to create cursor: %v", err)
+	}
+
+	var ips []net.IPNet
+	for pos := cur.Next(); pos != nil; pos = cur.Next() {
+		bits := 128
+		if pos.IP.To4() != nil {
+			bits = 32
 		}
 
-		var ips []net.IPNet
-		for pos := cur.Next(); pos != nil; pos = cur.Next() {
-			bits := 128
-			if pos.IP.To4() != nil {
-				bits = 32
-			}
+		ips = append(ips, net.IPNet{
+			IP:   pos.IP,
+			Mask: net.CIDRMask(bits, bits),
+		})
+	}
 
-			ips = append(ips, net.IPNet{
-				IP:   pos.IP,
-				Mask: net.CIDRMask(bits, bits),
-			})
-		}
+	cfg := wgtypes.Config{
+		ReplacePeers: true,
+		Peers: []wgtypes.PeerConfig{{
+			PublicKey:         wgtest.MustPublicKey(),
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        ips,
+		}},
+	}
 
-		cfg := wgtypes.Config{
-			ReplacePeers: true,
-			Peers: []wgtypes.PeerConfig{{
-				PublicKey:         wgtest.MustPublicKey(),
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        ips,
-			}},
-		}
+	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+		t.Fatalf("failed to configure %q: %v", d.Name, err)
+	}
 
-		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
-			t.Fatalf("failed to configure %q: %v", d.Name, err)
-		}
+	dn, err := c.DeviceByName(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get %q by name: %v", d.Name, err)
+	}
 
-		dn, err := c.DeviceByName(d.Name)
-		if err != nil {
-			t.Fatalf("failed to get %q by name: %v", d.Name, err)
-		}
+	peerIPs := countPeerIPs(dn)
+	if diff := cmp.Diff(len(ips), peerIPs); diff != "" {
+		t.Fatalf("unexpected number of configured peer IPs (-want +got):\n%s", diff)
+	}
 
-		peerIPs := countPeerIPs(dn)
-		if diff := cmp.Diff(len(ips), peerIPs); diff != "" {
-			t.Fatalf("unexpected number of configured peer IPs (-want +got):\n%s", diff)
-		}
+	t.Logf("device: %s: %d IPs", d.Name, peerIPs)
+}
 
-		t.Logf("device: %s: %d IPs", d.Name, peerIPs)
+func resetDevice(t *testing.T, c *wireguardctrl.Client, name string) {
+	t.Helper()
+
+	zero := 0
+
+	cfg := wgtypes.Config{
+		// Clear device config.
+		PrivateKey:   wgtypes.ClearKey(),
+		ListenPort:   &zero,
+		FirewallMark: &zero,
+
+		// Clear all peers.
+		ReplacePeers: true,
+	}
+
+	if err := c.ConfigureDevice(name, cfg); err != nil {
+		t.Fatalf("failed to reset %q: %v", name, err)
 	}
 }
 
