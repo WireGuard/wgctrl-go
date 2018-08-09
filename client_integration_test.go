@@ -58,6 +58,12 @@ func TestClientIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, d := range devices {
 				t.Run(d.Name, func(t *testing.T) {
+					// Panic if a specific test takes too long.
+					timer := time.AfterFunc(5*time.Second, func() {
+						panic("test took too long")
+					})
+					defer timer.Stop()
+
 					// Dereference pointers so each test gets its own copy of d.
 					tt.fn(t, c, *d)
 
@@ -174,11 +180,6 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, d wgtypes.Device) {
 }
 
 func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, d wgtypes.Device) {
-	timer := time.AfterFunc(5*time.Second, func() {
-		panic("configuring peer IPs took too long")
-	})
-	defer timer.Stop()
-
 	// TODO(mdlayher): apply a second subnet of IPs once potential bug
 	// is resolved.
 
