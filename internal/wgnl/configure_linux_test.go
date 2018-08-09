@@ -273,7 +273,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 	}
 }
 
-func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
+func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 	nameAttr := netlink.Attribute{
 		Type: wgh.DeviceAIfname,
 		Data: nlenc.Bytes(okName),
@@ -281,13 +281,15 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 
 	var (
 		peerA    = wgtest.MustPublicKey()
-		peerAIPs = generateIPs(batchChunk + 1)
+		peerAIPs = generateIPs(ipBatchChunk + 1)
 
 		peerB    = wgtest.MustPublicKey()
-		peerBIPs = generateIPs(batchChunk / 2)
+		peerBIPs = generateIPs(ipBatchChunk / 2)
 
 		peerC    = wgtest.MustPublicKey()
-		peerCIPs = generateIPs(batchChunk * 3)
+		peerCIPs = generateIPs(ipBatchChunk * 3)
+
+		peerD = wgtest.MustPublicKey()
 	)
 
 	cfg := wgtypes.Config{
@@ -307,6 +309,10 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 				PublicKey:         peerC,
 				ReplaceAllowedIPs: true,
 				AllowedIPs:        peerCIPs,
+			},
+			{
+				PublicKey: peerD,
+				Remove:    true,
 			},
 		},
 	}
@@ -354,7 +360,7 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 						},
 						{
 							Type: wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerAIPs[:batchChunk]),
+							Data: mustAllowedIPs(peerAIPs[:ipBatchChunk]),
 						},
 					}),
 				},
@@ -375,7 +381,7 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 						// Not first chunk; don't replace IPs.
 						{
 							Type: wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerAIPs[batchChunk:]),
+							Data: mustAllowedIPs(peerAIPs[ipBatchChunk:]),
 						},
 					}),
 				},
@@ -425,7 +431,7 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 						},
 						{
 							Type: wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerCIPs[:batchChunk]),
+							Data: mustAllowedIPs(peerCIPs[:ipBatchChunk]),
 						},
 					}),
 				},
@@ -446,7 +452,7 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 						// Not first chunk; don't replace IPs.
 						{
 							Type: wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerCIPs[batchChunk : batchChunk*2]),
+							Data: mustAllowedIPs(peerCIPs[ipBatchChunk : ipBatchChunk*2]),
 						},
 					}),
 				},
@@ -467,7 +473,28 @@ func TestLinuxClientConfigureDeviceLargeChunks(t *testing.T) {
 						// Not first chunk; don't replace IPs.
 						{
 							Type: wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerCIPs[batchChunk*2:]),
+							Data: mustAllowedIPs(peerCIPs[ipBatchChunk*2:]),
+						},
+					}),
+				},
+			}),
+		},
+		// Fourth peer, only chunk.
+		nameAttr,
+		{
+			Type: wgh.DeviceAPeers,
+			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+				{
+					Type: 0,
+					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+						{
+							Type: wgh.PeerAPublicKey,
+							Data: peerD[:],
+						},
+						// Not first chunk; don't replace IPs.
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
 						},
 					}),
 				},

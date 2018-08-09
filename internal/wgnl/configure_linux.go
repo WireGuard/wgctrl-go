@@ -62,23 +62,30 @@ func configAttrs(name string, cfg wgtypes.Config) ([]netlink.Attribute, error) {
 	return attrs, nil
 }
 
-// batchChunk is a tunable allowed IP batch limit per peer.
+// ipBatchChunk is a tunable allowed IP batch limit per peer.
 //
 // Because we don't necessarily know how much space a given peer will occupy,
 // we play it safe and use a reasonably small value.  Note that this constant
 // is used both in this package and tests, so be aware when making changes.
-const batchChunk = 256
+const ipBatchChunk = 256
 
-// shouldBatch determines if the number of peer IP addresses exceeds an
-// internal limit for a single message, and thus if the configuration should
-// be split into batches.
+// peerBatchChunk specifies the number of peers that can appear in a
+// configuration before we start splitting it into chunks.
+const peerBatchChunk = 32
+
+// shouldBatch determines if a configuration is sufficiently complex that it
+// should be split into batches.
 func shouldBatch(cfg wgtypes.Config) bool {
+	if len(cfg.Peers) > peerBatchChunk {
+		return true
+	}
+
 	var ips int
 	for _, p := range cfg.Peers {
 		ips += len(p.AllowedIPs)
 	}
 
-	return ips > batchChunk
+	return ips > ipBatchChunk
 }
 
 // buildBatches produces a batch of configs from a single config, if needed.
@@ -105,7 +112,7 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 		var done bool
 		for !done {
 			var tmp []net.IPNet
-			if len(p.AllowedIPs) < batchChunk {
+			if len(p.AllowedIPs) < ipBatchChunk {
 				// IPs all fit within a batch; we are done.
 				tmp = make([]net.IPNet, len(p.AllowedIPs))
 				copy(tmp, p.AllowedIPs)
@@ -113,10 +120,10 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 			} else {
 				// IPs are larger than a single batch, copy a batch out and
 				// advance the cursor.
-				tmp = make([]net.IPNet, batchChunk)
-				copy(tmp, p.AllowedIPs[:batchChunk])
+				tmp = make([]net.IPNet, ipBatchChunk)
+				copy(tmp, p.AllowedIPs[:ipBatchChunk])
 
-				p.AllowedIPs = p.AllowedIPs[batchChunk:]
+				p.AllowedIPs = p.AllowedIPs[ipBatchChunk:]
 
 				if len(p.AllowedIPs) == 0 {
 					// IPs ended on a batch boundary; no more IPs left so end
@@ -125,20 +132,33 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 				}
 			}
 
-			// Only allow peer IP replacement for the first occurrence of a peer
-			// in a batch of configurations, so further IPs can be appended.
-			var replaceAllowedIPs bool
-			if _, ok := knownPeers[p.PublicKey]; !ok && p.ReplaceAllowedIPs {
+			pcfg := wgtypes.PeerConfig{
+				// PublicKey denotes the peer and must be present.
+				PublicKey: p.PublicKey,
+
+				// It'd be a bit weird to have a remove peer message with many
+				// IPs, but just in case, add this to every peer's message.
+				Remove: p.Remove,
+
+				// The IPs for this chunk.
+				AllowedIPs: tmp,
+			}
+
+			// Only pass certain fields on the first occurrence of a peer, so
+			// that subsequent IPs won't be wiped out and space isn't wasted.
+			if _, ok := knownPeers[p.PublicKey]; !ok {
 				knownPeers[p.PublicKey] = struct{}{}
-				replaceAllowedIPs = true
+
+				pcfg.PresharedKey = p.PresharedKey
+				pcfg.Endpoint = p.Endpoint
+				pcfg.PersistentKeepaliveInterval = p.PersistentKeepaliveInterval
+
+				// Important: do not move or appending peers won't work.
+				pcfg.ReplaceAllowedIPs = p.ReplaceAllowedIPs
 			}
 
 			// Add a peer configuration to this batch and keep going.
-			batch.Peers = []wgtypes.PeerConfig{{
-				PublicKey:         p.PublicKey,
-				ReplaceAllowedIPs: replaceAllowedIPs,
-				AllowedIPs:        tmp,
-			}}
+			batch.Peers = []wgtypes.PeerConfig{pcfg}
 			batches = append(batches, batch)
 		}
 	}

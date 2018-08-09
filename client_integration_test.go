@@ -52,6 +52,10 @@ func TestClientIntegration(t *testing.T) {
 			name: "configure many IPs",
 			fn:   testConfigureManyIPs,
 		},
+		{
+			name: "configure many peers",
+			fn:   testConfigureManyPeers,
+		},
 	}
 
 	for _, tt := range tests {
@@ -224,6 +228,70 @@ func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgty
 	}
 }
 
+func testConfigureManyPeers(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+	for _, d := range devices {
+		const (
+			nPeers  = 256
+			peerIPs = 512
+		)
+
+		var peers []wgtypes.PeerConfig
+		for i := 0; i < nPeers; i++ {
+			var (
+				pk  = wgtest.MustPresharedKey()
+				dur = 10 * time.Second
+			)
+
+			ips := generateIPs((i + 1) * 2)
+
+			peers = append(peers, wgtypes.PeerConfig{
+				PublicKey:         wgtest.MustPublicKey(),
+				PresharedKey:      &pk,
+				ReplaceAllowedIPs: true,
+				Endpoint: &net.UDPAddr{
+					IP:   ips[0].IP,
+					Port: 1111,
+				},
+				PersistentKeepaliveInterval: &dur,
+				AllowedIPs:                  ips,
+			})
+		}
+
+		var (
+			priv = wgtest.MustPrivateKey()
+			n    = 0
+		)
+
+		cfg := wgtypes.Config{
+			PrivateKey:   &priv,
+			ListenPort:   &n,
+			FirewallMark: &n,
+			ReplacePeers: true,
+			Peers:        peers,
+		}
+
+		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+			t.Fatalf("failed to configure %q: %v", d.Name, err)
+		}
+
+		dn, err := c.Device(d.Name)
+		if err != nil {
+			t.Fatalf("failed to get updated device: %v", err)
+		}
+
+		if diff := cmp.Diff(nPeers, len(dn.Peers)); diff != "" {
+			t.Fatalf("unexpected number of peers (-want +got):\n%s", diff)
+		}
+
+		countIPs := countPeerIPs(dn)
+		if diff := cmp.Diff(peerIPs, countIPs); diff != "" {
+			t.Fatalf("unexpected number of peer IPs (-want +got):\n%s", diff)
+		}
+
+		t.Logf("device: %s: %d peers, %d IPs", d.Name, len(dn.Peers), countIPs)
+	}
+}
+
 func countPeerIPs(d *wgtypes.Device) int {
 	var count int
 	for _, p := range d.Peers {
@@ -240,4 +308,30 @@ func ipsString(ipns []net.IPNet) string {
 	}
 
 	return strings.Join(ss, ", ")
+}
+
+func generateIPs(n int) []net.IPNet {
+	cur, err := ipaddr.Parse("2001:db8::/64")
+	if err != nil {
+		panicf("failed to create cursor: %v", err)
+	}
+
+	ips := make([]net.IPNet, 0, n)
+	for i := 0; i < n; i++ {
+		pos := cur.Next()
+		if pos == nil {
+			panic("hit nil IP during IP generation")
+		}
+
+		ips = append(ips, net.IPNet{
+			IP:   pos.IP,
+			Mask: net.CIDRMask(128, 128),
+		})
+	}
+
+	return ips
+}
+
+func panicf(format string, a ...interface{}) {
+	panic(fmt.Sprintf(format, a...))
 }
