@@ -33,9 +33,9 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	return c.c.Devices()
 }
 
-// DeviceByName implements wireguardctrl.wgClient.
-func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
-	return c.c.DeviceByName(name)
+// Device implements wireguardctrl.wgClient.
+func (c *Client) Device(name string) (*wgtypes.Device, error) {
+	return c.c.Device(name)
 }
 
 // ConfigureDevice implements wireguardctrl.wgClient.
@@ -47,6 +47,6 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 type osClient interface {
 	io.Closer
 	Devices() ([]*wgtypes.Device, error)
-	DeviceByName(name string) (*wgtypes.Device, error)
+	Device(name string) (*wgtypes.Device, error)
 	ConfigureDevice(name string, cfg wgtypes.Config) error
 }

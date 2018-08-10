@@ -15,7 +15,7 @@ import (
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
 
-func TestClientDeviceByName(t *testing.T) {
+func TestClientDevice(t *testing.T) {
 	tests := []struct {
 		name   string
 		device string
@@ -42,7 +42,7 @@ func TestClientDeviceByName(t *testing.T) {
 			c, done := testClient(t, nil)
 			defer done()
 
-			dev, err := c.DeviceByName(tt.device)
+			dev, err := c.Device(tt.device)
 			if err != nil {
 				if !tt.exists && os.IsNotExist(err) {
 					return

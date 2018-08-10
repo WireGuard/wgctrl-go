@@ -71,7 +71,7 @@ func (c *client) Devices() ([]*wgtypes.Device, error) {
 
 	var ds []*wgtypes.Device
 	for _, ifi := range ifis {
-		d, err := c.getDevice(0, ifi)
+		d, err := c.Device(ifi)
 		if err != nil {
 			return nil, err
 		}
@@ -82,9 +82,26 @@ func (c *client) Devices() ([]*wgtypes.Device, error) {
 	return ds, nil
 }
 
-// DeviceByName implements osClient.
-func (c *client) DeviceByName(name string) (*wgtypes.Device, error) {
-	return c.getDevice(0, name)
+// Device implements osClient.
+func (c *client) Device(name string) (*wgtypes.Device, error) {
+	// Don't bother querying netlink with empty input.
+	if name == "" {
+		return nil, os.ErrNotExist
+	}
+
+	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsDump
+
+	// Fetching a device by interface index is possible as well, but we only
+	// support fetching by name as it seems to be more convenient in general.
+	msgs, err := c.execute(wgh.CmdGetDevice, flags, []netlink.Attribute{{
+		Type: wgh.DeviceAIfname,
+		Data: nlenc.Bytes(name),
+	}})
+	if err != nil {
+		return nil, err
+	}
+
+	return parseDevice(msgs)
 }
 
 // ConfigureDevice implements osClient.
@@ -106,36 +123,6 @@ func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	}
 
 	return nil
-}
-
-// getDevice fetches a Device using either its index or name, depending on which
-// is specified.  If both are specified, index is preferred.
-func (c *client) getDevice(index int, name string) (*wgtypes.Device, error) {
-	// WireGuard netlink expects either interface index or name for all queries.
-	var attr netlink.Attribute
-	switch {
-	case index != 0:
-		attr = netlink.Attribute{
-			Type: wgh.DeviceAIfindex,
-			Data: nlenc.Uint32Bytes(uint32(index)),
-		}
-	case name != "":
-		attr = netlink.Attribute{
-			Type: wgh.DeviceAIfname,
-			Data: nlenc.Bytes(name),
-		}
-	default:
-		// No information provided, nothing to do.
-		return nil, os.ErrNotExist
-	}
-
-	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsDump
-	msgs, err := c.execute(wgh.CmdGetDevice, flags, []netlink.Attribute{attr})
-	if err != nil {
-		return nil, err
-	}
-
-	return parseDevice(msgs)
 }
 
 // execute executes a single WireGuard netlink request with the specified command,

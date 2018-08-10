@@ -50,8 +50,8 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	return ds, nil
 }
 
-// DeviceByName implements wireguardctrl.wgClient.
-func (c *Client) DeviceByName(name string) (*wgtypes.Device, error) {
+// Device implements wireguardctrl.wgClient.
+func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	socks, err := c.findSockets()
 	if err != nil {
 		return nil, err
