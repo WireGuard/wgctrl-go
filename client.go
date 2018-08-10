@@ -14,7 +14,6 @@ import (
 type wgClient interface {
 	io.Closer
 	Devices() ([]*wgtypes.Device, error)
-	DeviceByIndex(index int) (*wgtypes.Device, error)
 	DeviceByName(name string) (*wgtypes.Device, error)
 	ConfigureDevice(name string, cfg wgtypes.Config) error
 }
@@ -90,26 +89,6 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	}
 
 	return out, nil
-}
-
-// DeviceByIndex retrieves a WireGuard device by its interface index.
-//
-// If the device specified by index does not exist or is not a WireGuard device,
-// an error is returned which can be checked using os.IsNotExist.
-func (c *Client) DeviceByIndex(index int) (*wgtypes.Device, error) {
-	for _, wgc := range c.cs {
-		d, err := wgc.DeviceByIndex(index)
-		switch {
-		case err == nil:
-			return d, nil
-		case os.IsNotExist(err):
-			continue
-		default:
-			return nil, err
-		}
-	}
-
-	return nil, os.ErrNotExist
 }
 
 // DeviceByName retrieves a WireGuard device by its interface name.

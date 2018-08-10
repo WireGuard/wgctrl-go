@@ -2,7 +2,6 @@ package wguser
 
 import (
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,23 +48,6 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	}
 
 	return ds, nil
-}
-
-// DeviceByIndex implements wireguardctrl.wgClient.
-func (c *Client) DeviceByIndex(index int) (*wgtypes.Device, error) {
-	ifi, err := net.InterfaceByIndex(index)
-	if err != nil {
-		// Package net doesn't expose a nice way to check this, so we have to
-		// improvise just a little bit.
-		oerr, ok := err.(*net.OpError)
-		if ok && strings.Contains(oerr.Error(), "no such network interface") {
-			return nil, os.ErrNotExist
-		}
-
-		return nil, err
-	}
-
-	return c.DeviceByName(ifi.Name)
 }
 
 // DeviceByName implements wireguardctrl.wgClient.

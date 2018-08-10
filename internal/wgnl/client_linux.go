@@ -82,11 +82,6 @@ func (c *client) Devices() ([]*wgtypes.Device, error) {
 	return ds, nil
 }
 
-// DeviceByIndex implements osClient.
-func (c *client) DeviceByIndex(index int) (*wgtypes.Device, error) {
-	return c.getDevice(index, "")
-}
-
 // DeviceByName implements osClient.
 func (c *client) DeviceByName(name string) (*wgtypes.Device, error) {
 	return c.getDevice(0, name)

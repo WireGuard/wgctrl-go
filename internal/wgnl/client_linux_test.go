@@ -61,11 +61,6 @@ func TestLinuxClientDevicesEmpty(t *testing.T) {
 }
 
 func TestLinuxClientIsNotExist(t *testing.T) {
-	byIndex := func(c *client) error {
-		_, err := c.DeviceByIndex(1)
-		return err
-	}
-
 	byName := func(c *client) error {
 		_, err := c.DeviceByName("wg0")
 		return err
@@ -82,28 +77,11 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 		err  error
 	}{
 		{
-			name: "index: 0",
-			fn: func(c *client) error {
-				_, err := c.DeviceByIndex(0)
-				return err
-			},
-		},
-		{
 			name: "name: empty",
 			fn: func(c *client) error {
 				_, err := c.DeviceByName("")
 				return err
 			},
-		},
-		{
-			name: "index: ENODEV",
-			fn:   byIndex,
-			err:  unix.ENODEV,
-		},
-		{
-			name: "index: ENOTSUP",
-			fn:   byIndex,
-			err:  unix.ENOTSUP,
 		},
 		{
 			name: "name: ENODEV",
