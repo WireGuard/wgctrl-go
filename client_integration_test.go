@@ -75,29 +75,13 @@ func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	for _, d := range devices {
 		t.Logf("device: %s: %s", d.Name, d.PublicKey.String())
 
-		dn, err := c.DeviceByName(d.Name)
+		dn, err := c.Device(d.Name)
 		if err != nil {
-			t.Fatalf("failed to get %q by name: %v", d.Name, err)
+			t.Fatalf("failed to get %q: %v", d.Name, err)
 		}
 
 		if diff := cmp.Diff(d, dn); diff != "" {
-			t.Fatalf("unexpected Device from DeviceByName (-want +got):\n%s", diff)
-		}
-
-		// Fetch the interface index of the device to verify it can be fetched
-		// properly by that index.
-		ifi, err := net.InterfaceByName(d.Name)
-		if err != nil {
-			t.Fatalf("failed to get %q network interface: %v", d.Name, err)
-		}
-
-		di, err := c.DeviceByIndex(ifi.Index)
-		if err != nil {
-			t.Fatalf("failed to get %q by index: %v", d.Name, err)
-		}
-
-		if diff := cmp.Diff(d, di); diff != "" {
-			t.Fatalf("unexpected Device from DeviceByIndex (-want +got):\n%s", diff)
+			t.Fatalf("unexpected Device (-want +got):\n%s", diff)
 		}
 	}
 }
@@ -146,7 +130,7 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 			t.Fatalf("failed to configure %q: %v", d.Name, err)
 		}
 
-		dn, err := c.DeviceByName(d.Name)
+		dn, err := c.Device(d.Name)
 		if err != nil {
 			t.Fatalf("failed to get %q by name: %v", d.Name, err)
 		}
@@ -166,7 +150,7 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 		}
 
 		if diff := cmp.Diff(d, dn); diff != "" {
-			t.Fatalf("unexpected Device from DeviceByName (-want +got):\n%s", diff)
+			t.Fatalf("unexpected Device from Device (-want +got):\n%s", diff)
 		}
 
 		// Leading space for alignment.
@@ -216,7 +200,7 @@ func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgty
 			t.Fatalf("failed to configure %q: %v", d.Name, err)
 		}
 
-		dn, err := c.DeviceByName(d.Name)
+		dn, err := c.Device(d.Name)
 		if err != nil {
 			t.Fatalf("failed to get %q by name: %v", d.Name, err)
 		}

@@ -3,7 +3,6 @@ package wguser
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,16 +15,7 @@ import (
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
 
-func TestClientDeviceByIndexIsNotExist(t *testing.T) {
-	c := &Client{}
-
-	// Hopefully there aren't this many interfaces on the test system.
-	if _, err := c.DeviceByIndex(int(math.MaxUint16)); !os.IsNotExist(err) {
-		t.Fatalf("expected is not exist, but got: %v", err)
-	}
-}
-
-func TestClientDeviceByName(t *testing.T) {
+func TestClientDevice(t *testing.T) {
 	tests := []struct {
 		name   string
 		device string
@@ -52,7 +42,7 @@ func TestClientDeviceByName(t *testing.T) {
 			c, done := testClient(t, nil)
 			defer done()
 
-			dev, err := c.DeviceByName(tt.device)
+			dev, err := c.Device(tt.device)
 			if err != nil {
 				if !tt.exists && os.IsNotExist(err) {
 					return
