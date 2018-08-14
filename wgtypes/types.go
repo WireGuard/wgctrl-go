@@ -36,18 +36,13 @@ type Device struct {
 	Peers []Peer
 }
 
-const keyLen = 32 // wgh.KeyLen
+// KeyLen is the expected key length for a WireGuard key.
+const KeyLen = 32 // wgh.KeyLen
 
 // A Key is a public, private, or pre-shared secret key.  The Key constructor
 // functions in this package can be used to create Keys suitable for each of
 // these applications.
-type Key [keyLen]byte
-
-// ClearKey produces an empty Key suitable for use in Config and PeerConfig
-// to clear a Key field for a device or peer.
-func ClearKey() *Key {
-	return &Key{}
-}
+type Key [KeyLen]byte
 
 // GenerateKey generates a Key suitable for use as a pre-shared secret key from
 // a cryptographically safe source.
@@ -55,7 +50,7 @@ func ClearKey() *Key {
 // The output Key should not be used as a private key; use GeneratePrivateKey
 // instead.
 func GenerateKey() (Key, error) {
-	b := make([]byte, keyLen)
+	b := make([]byte, KeyLen)
 	if _, err := rand.Read(b); err != nil {
 		return Key{}, fmt.Errorf("wgtypes: failed to read random bytes: %v", err)
 	}
@@ -83,7 +78,7 @@ func GeneratePrivateKey() (Key, error) {
 // NewKey creates a Key from an existing byte slice.  The byte slice must be
 // exactly 32 bytes in length.
 func NewKey(b []byte) (Key, error) {
-	if len(b) != keyLen {
+	if len(b) != KeyLen {
 		return Key{}, fmt.Errorf("wgtypes: incorrect key size: %d", len(b))
 	}
 
@@ -98,8 +93,8 @@ func NewKey(b []byte) (Key, error) {
 // PublicKey should only be called when k is a private key.
 func (k Key) PublicKey() Key {
 	var (
-		pub  [keyLen]byte
-		priv = [keyLen]byte(k)
+		pub  [KeyLen]byte
+		priv = [KeyLen]byte(k)
 	)
 
 	// ScalarBaseMult uses the correct base value per https://cr.yp.to/ecdh.html,

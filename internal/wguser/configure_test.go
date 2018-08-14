@@ -90,7 +90,7 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 		{
 			name: "ok, clear key",
 			cfg: wgtypes.Config{
-				PrivateKey: wgtypes.ClearKey(),
+				PrivateKey: &wgtypes.Key{},
 			},
 			req: "set=1\nprivate_key=0000000000000000000000000000000000000000000000000000000000000000\n\n",
 		},
