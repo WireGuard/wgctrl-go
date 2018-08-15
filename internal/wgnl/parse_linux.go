@@ -3,7 +3,6 @@
 package wgnl
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 	"time"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
-	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
@@ -232,11 +230,9 @@ func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
 			// IPv4 address parsing.
 			sa := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&b[0]))
 
-			fmt.Println()
-
 			*endpoint = net.UDPAddr{
 				IP:   net.IP(sa.Addr[:]).To4(),
-				Port: int(binary.BigEndian.Uint16(nlenc.Uint16Bytes(sa.Port))),
+				Port: int(sockaddrPort(int(sa.Port))),
 			}
 
 			return nil
@@ -246,7 +242,7 @@ func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
 
 			*endpoint = net.UDPAddr{
 				IP:   net.IP(sa.Addr[:]),
-				Port: int(binary.BigEndian.Uint16(nlenc.Uint16Bytes(sa.Port))),
+				Port: int(sockaddrPort(int(sa.Port))),
 			}
 
 			return nil

@@ -213,7 +213,7 @@ func sockaddrBytes(endpoint net.UDPAddr) ([]byte, error) {
 
 		sa := unix.RawSockaddrInet6{
 			Family: unix.AF_INET6,
-			Port:   binary.BigEndian.Uint16(nlenc.Uint16Bytes(uint16(endpoint.Port))),
+			Port:   sockaddrPort(endpoint.Port),
 			Addr:   addr,
 		}
 
@@ -226,7 +226,7 @@ func sockaddrBytes(endpoint net.UDPAddr) ([]byte, error) {
 
 	sa := unix.RawSockaddrInet4{
 		Family: unix.AF_INET,
-		Port:   binary.BigEndian.Uint16(nlenc.Uint16Bytes(uint16(endpoint.Port))),
+		Port:   sockaddrPort(endpoint.Port),
 		Addr:   addr,
 	}
 
@@ -287,4 +287,10 @@ func isValidIP(ip net.IP) bool {
 // isIPv6 determines if IP is a valid IPv6 address.
 func isIPv6(ip net.IP) bool {
 	return isValidIP(ip) && ip.To4() == nil
+}
+
+// sockaddrPort interprets port as a big endian uint16 for use passing sockaddr
+// structures to the kernel.
+func sockaddrPort(port int) uint16 {
+	return binary.BigEndian.Uint16(nlenc.Uint16Bytes(uint16(port)))
 }
