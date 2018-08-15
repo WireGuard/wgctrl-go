@@ -33,6 +33,16 @@ func MustHexKey(s string) wgtypes.Key {
 	return k
 }
 
+// MustPresharedKey generates a preshared key or panics.
+func MustPresharedKey() wgtypes.Key {
+	k, err := wgtypes.GenerateKey()
+	if err != nil {
+		panicf("wgtest: failed to generate preshared key: %v", err)
+	}
+
+	return k
+}
+
 // MustPrivateKey generates a private key or panics.
 func MustPrivateKey() wgtypes.Key {
 	k, err := wgtypes.GeneratePrivateKey()
