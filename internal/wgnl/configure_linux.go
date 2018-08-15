@@ -3,10 +3,10 @@
 package wgnl
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net"
+	"unsafe"
 
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
@@ -211,27 +211,26 @@ func sockaddrBytes(endpoint net.UDPAddr) ([]byte, error) {
 		var addr [16]byte
 		copy(addr[:], endpoint.IP.To16())
 
-		buf := bytes.NewBuffer(nil)
-		binary.Write(buf, binary.LittleEndian, uint16(unix.AF_INET6))
-		binary.Write(buf, binary.BigEndian, uint16(endpoint.Port))
-		binary.Write(buf, binary.LittleEndian, uint32(0)) // Flowinfo
-		binary.Write(buf, binary.BigEndian, addr)
-		binary.Write(buf, binary.LittleEndian, uint32(0)) // Scope ID
+		sa := unix.RawSockaddrInet6{
+			Family: unix.AF_INET6,
+			Port:   binary.BigEndian.Uint16(nlenc.Uint16Bytes(uint16(endpoint.Port))),
+			Addr:   addr,
+		}
 
-		return buf.Bytes(), nil
+		return (*(*[unix.SizeofSockaddrInet6]byte)(unsafe.Pointer(&sa)))[:], nil
 	}
 
 	// IPv4 address handling.
 	var addr [4]byte
 	copy(addr[:], endpoint.IP.To4())
 
-	buf := bytes.NewBuffer(nil)
-	binary.Write(buf, binary.LittleEndian, uint16(unix.AF_INET))
-	binary.Write(buf, binary.BigEndian, uint16(endpoint.Port))
-	binary.Write(buf, binary.BigEndian, addr)
-	binary.Write(buf, binary.LittleEndian, [8]uint8{}) // Zero
+	sa := unix.RawSockaddrInet4{
+		Family: unix.AF_INET,
+		Port:   binary.BigEndian.Uint16(nlenc.Uint16Bytes(uint16(endpoint.Port))),
+		Addr:   addr,
+	}
 
-	return buf.Bytes(), nil
+	return (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&sa)))[:], nil
 }
 
 // allowedIPBytes converts a slice net.IPNets to packed netlink attribute bytes.
