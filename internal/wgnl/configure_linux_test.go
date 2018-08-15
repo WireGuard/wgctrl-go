@@ -3,7 +3,6 @@
 package wgnl
 
 import (
-	"encoding/binary"
 	"net"
 	"testing"
 	"time"
@@ -147,7 +146,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 											0x00, 0x00, 0x00, 0x00,
 											0x00, 0x00, 0x00, 0x33,
 										},
-										Port: binary.BigEndian.Uint16(nlenc.Uint16Bytes(51820)),
+										Port: sockaddrPort(51820),
 									})))[:],
 								},
 								{
@@ -174,7 +173,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 									Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
 										Family: unix.AF_INET,
 										Addr:   [4]byte{182, 122, 22, 19},
-										Port:   binary.BigEndian.Uint16(nlenc.Uint16Bytes(3233)),
+										Port:   sockaddrPort(3233),
 									})))[:],
 								},
 								{
@@ -206,7 +205,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 									Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
 										Family: unix.AF_INET,
 										Addr:   [4]byte{5, 152, 198, 39},
-										Port:   binary.BigEndian.Uint16(nlenc.Uint16Bytes(51820)),
+										Port:   sockaddrPort(51820),
 									})))[:],
 								},
 								{
