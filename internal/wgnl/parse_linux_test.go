@@ -209,7 +209,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 										Type: wgh.PeerAEndpoint,
 										Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
 											Addr: [4]byte{192, 168, 1, 1},
-											Port: 1111,
+											Port: sockaddrPort(1111),
 										})))[:],
 									},
 									{
@@ -258,7 +258,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 												0x00, 0x00, 0x00, 0x00,
 												0x00, 0x00, 0x00, 0x01,
 											},
-											Port: 2222,
+											Port: sockaddrPort(2222),
 										})))[:],
 									},
 								}),

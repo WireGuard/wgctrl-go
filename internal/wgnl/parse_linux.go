@@ -232,7 +232,7 @@ func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
 
 			*endpoint = net.UDPAddr{
 				IP:   net.IP(sa.Addr[:]).To4(),
-				Port: int(sa.Port),
+				Port: int(sockaddrPort(int(sa.Port))),
 			}
 
 			return nil
@@ -242,7 +242,7 @@ func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
 
 			*endpoint = net.UDPAddr{
 				IP:   net.IP(sa.Addr[:]),
-				Port: int(sa.Port),
+				Port: int(sockaddrPort(int(sa.Port))),
 			}
 
 			return nil
