@@ -165,35 +165,45 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 
 func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	for _, d := range devices {
-		// TODO(mdlayher): apply a second subnet of IPs once potential bug
-		// is resolved.
-
-		// Apply 511 IPs.
-		cur, err := ipaddr.Parse("2001:db8::/119")
-		if err != nil {
-			t.Fatalf("failed to create cursor: %v", err)
-		}
-
-		var ips []net.IPNet
-		for pos := cur.Next(); pos != nil; pos = cur.Next() {
-			bits := 128
-			if pos.IP.To4() != nil {
-				bits = 32
+		// Apply 511 IPs per peer.
+		var countIPs int
+		var peers []wgtypes.PeerConfig
+		for i := 0; i < 2; i++ {
+			cidr := "2001:db8::/119"
+			if i == 1 {
+				cidr = "2001:db8:ffff::/119"
 			}
 
-			ips = append(ips, net.IPNet{
-				IP:   pos.IP,
-				Mask: net.CIDRMask(bits, bits),
+			cur, err := ipaddr.Parse(cidr)
+			if err != nil {
+				t.Fatalf("failed to create cursor: %v", err)
+			}
+
+			var ips []net.IPNet
+			for pos := cur.Next(); pos != nil; pos = cur.Next() {
+				bits := 128
+				if pos.IP.To4() != nil {
+					bits = 32
+				}
+
+				ips = append(ips, net.IPNet{
+					IP:   pos.IP,
+					Mask: net.CIDRMask(bits, bits),
+				})
+			}
+
+			peers = append(peers, wgtypes.PeerConfig{
+				PublicKey:         wgtest.MustPublicKey(),
+				ReplaceAllowedIPs: true,
+				AllowedIPs:        ips,
 			})
+
+			countIPs += len(ips)
 		}
 
 		cfg := wgtypes.Config{
 			ReplacePeers: true,
-			Peers: []wgtypes.PeerConfig{{
-				PublicKey:         wgtest.MustPublicKey(),
-				ReplaceAllowedIPs: true,
-				AllowedIPs:        ips,
-			}},
+			Peers:        peers,
 		}
 
 		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
@@ -206,7 +216,7 @@ func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgty
 		}
 
 		peerIPs := countPeerIPs(dn)
-		if diff := cmp.Diff(len(ips), peerIPs); diff != "" {
+		if diff := cmp.Diff(countIPs, peerIPs); diff != "" {
 			t.Fatalf("unexpected number of configured peer IPs (-want +got):\n%s", diff)
 		}
 
