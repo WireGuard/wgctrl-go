@@ -147,7 +147,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 											0x00, 0x00, 0x00, 0x00,
 											0x00, 0x00, 0x00, 0x33,
 										},
-										Port: binary.BigEndian.Uint16(nlenc.Uint16Bytes((51820))),
+										Port: binary.BigEndian.Uint16(nlenc.Uint16Bytes(51820)),
 									})))[:],
 								},
 								{
