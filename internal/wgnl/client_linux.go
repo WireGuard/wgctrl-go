@@ -93,10 +93,15 @@ func (c *client) Device(name string) (*wgtypes.Device, error) {
 
 	// Fetching a device by interface index is possible as well, but we only
 	// support fetching by name as it seems to be more convenient in general.
-	msgs, err := c.execute(wgh.CmdGetDevice, flags, []netlink.Attribute{{
+	b, err := netlink.MarshalAttributes([]netlink.Attribute{{
 		Type: wgh.DeviceAIfname,
 		Data: nlenc.Bytes(name),
 	}})
+	if err != nil {
+		return nil, err
+	}
+
+	msgs, err := c.execute(wgh.CmdGetDevice, flags, b)
 	if err != nil {
 		return nil, err
 	}
@@ -127,18 +132,13 @@ func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 
 // execute executes a single WireGuard netlink request with the specified command,
 // header flags, and attribute arguments.
-func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrs []netlink.Attribute) ([]genetlink.Message, error) {
-	b, err := netlink.MarshalAttributes(attrs)
-	if err != nil {
-		return nil, err
-	}
-
+func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte) ([]genetlink.Message, error) {
 	msg := genetlink.Message{
 		Header: genetlink.Header{
 			Command: command,
 			Version: wgh.GenlVersion,
 		},
-		Data: b,
+		Data: attrb,
 	}
 
 	msgs, err := c.c.Execute(msg, c.family.ID, flags)
