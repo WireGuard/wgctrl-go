@@ -17,49 +17,45 @@ import (
 
 // TODO(mdlayher): netlink message chunking with large configurations.
 
-// configAttrs creates the required netlink attributes to configure the device
-// specified by name using the non-nil fields in cfg.
-func configAttrs(name string, cfg wgtypes.Config) ([]netlink.Attribute, error) {
-	var attrs nlAttrs
-	attrs.push(wgh.DeviceAIfname, nlenc.Bytes(name))
+// configAttrs creates the required encoded netlink attributes to configure
+// the device specified by name using the non-nil fields in cfg.
+func configAttrs(name string, cfg wgtypes.Config) ([]byte, error) {
+	ae := netlink.NewAttributeEncoder()
+	ae.String(wgh.DeviceAIfname, name)
 
 	if cfg.PrivateKey != nil {
-		attrs.push(wgh.DeviceAPrivateKey, (*cfg.PrivateKey)[:])
+		ae.Bytes(wgh.DeviceAPrivateKey, (*cfg.PrivateKey)[:])
 	}
 
 	if cfg.ListenPort != nil {
-		attrs.push(wgh.DeviceAListenPort, nlenc.Uint16Bytes(uint16(*cfg.ListenPort)))
+		ae.Uint16(wgh.DeviceAListenPort, uint16(*cfg.ListenPort))
 	}
 
 	if cfg.FirewallMark != nil {
-		attrs.push(wgh.DeviceAFwmark, nlenc.Uint32Bytes(uint32(*cfg.FirewallMark)))
+		ae.Uint32(wgh.DeviceAFwmark, uint32(*cfg.FirewallMark))
 	}
 
 	if cfg.ReplacePeers {
-		attrs.push(wgh.DeviceAFlags, nlenc.Uint32Bytes(wgh.DeviceFReplacePeers))
+		ae.Uint32(wgh.DeviceAFlags, wgh.DeviceFReplacePeers)
 	}
 
-	var peerArr nlAttrs
-	for i, p := range cfg.Peers {
-		b, err := peerBytes(p)
-		if err != nil {
-			return nil, err
-		}
+	pae := netlink.NewAttributeEncoder()
+	var havePeers bool
 
+	for i, p := range cfg.Peers {
+		havePeers = true
 		// Netlink arrays use type as an array index.
-		peerArr.push(uint16(i), b)
+		pae.Do(uint16(i), func() ([]byte, error) {
+			return peerBytes(p)
+		})
 	}
 
 	// Only apply peer attributes if necessary.
-	if len(peerArr) > 0 {
-		b, err := netlink.MarshalAttributes(peerArr)
-		if err != nil {
-			return nil, err
-		}
-		attrs.push(wgh.DeviceAPeers, b)
+	if havePeers {
+		ae.Do(wgh.DeviceAPeers, pae.Encode)
 	}
 
-	return attrs, nil
+	return ae.Encode()
 }
 
 // ipBatchChunk is a tunable allowed IP batch limit per peer.
@@ -176,8 +172,9 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 
 // peerBytes converts a PeerConfig into netlink attribute bytes.
 func peerBytes(p wgtypes.PeerConfig) ([]byte, error) {
-	var attrs nlAttrs
-	attrs.push(wgh.PeerAPublicKey, p.PublicKey[:])
+	ae := netlink.NewAttributeEncoder()
+
+	ae.Bytes(wgh.PeerAPublicKey, p.PublicKey[:])
 
 	// Flags are stored in a single attribute.
 	var flags uint32
@@ -188,36 +185,31 @@ func peerBytes(p wgtypes.PeerConfig) ([]byte, error) {
 		flags |= wgh.PeerFReplaceAllowedips
 	}
 	if flags != 0 {
-		attrs.push(wgh.PeerAFlags, nlenc.Uint32Bytes(flags))
+		ae.Uint32(wgh.PeerAFlags, flags)
 	}
 
 	if p.PresharedKey != nil {
-		attrs.push(wgh.PeerAPresharedKey, (*p.PresharedKey)[:])
+		ae.Bytes(wgh.PeerAPresharedKey, (*p.PresharedKey)[:])
 	}
 
 	if p.Endpoint != nil {
-		b, err := sockaddrBytes(*p.Endpoint)
-		if err != nil {
-			return nil, err
-		}
-
-		attrs.push(wgh.PeerAEndpoint, b)
+		ae.Do(wgh.PeerAEndpoint, func() ([]byte, error) {
+			return sockaddrBytes(*p.Endpoint)
+		})
 	}
 
 	if p.PersistentKeepaliveInterval != nil {
-		attrs.push(wgh.PeerAPersistentKeepaliveInterval, nlenc.Uint16Bytes(uint16(p.PersistentKeepaliveInterval.Seconds())))
+		ae.Uint16(wgh.PeerAPersistentKeepaliveInterval, uint16(p.PersistentKeepaliveInterval.Seconds()))
 	}
 
 	// Only apply allowed IPs if necessary.
 	if len(p.AllowedIPs) > 0 {
-		b, err := allowedIPBytes(p.AllowedIPs)
-		if err != nil {
-			return nil, err
-		}
-		attrs.push(wgh.PeerAAllowedips, b)
+		ae.Do(wgh.PeerAAllowedips, func() ([]byte, error) {
+			return allowedIPBytes(p.AllowedIPs)
+		})
 	}
 
-	return netlink.MarshalAttributes(attrs)
+	return ae.Encode()
 }
 
 // sockaddrBytes converts a net.UDPAddr to raw sockaddr_in or sockaddr_in6 bytes.
@@ -255,7 +247,8 @@ func sockaddrBytes(endpoint net.UDPAddr) ([]byte, error) {
 
 // allowedIPBytes converts a slice net.IPNets to packed netlink attribute bytes.
 func allowedIPBytes(ipns []net.IPNet) ([]byte, error) {
-	var ipArr nlAttrs
+	ae := netlink.NewAttributeEncoder()
+
 	for i, ipn := range ipns {
 		if !isValidIP(ipn.IP) {
 			return nil, fmt.Errorf("wgnl: invalid allowed IP: %s", ipn.IP.String())
@@ -268,35 +261,19 @@ func allowedIPBytes(ipns []net.IPNet) ([]byte, error) {
 			ipn.IP = ipn.IP.To4()
 		}
 
-		var attrs nlAttrs
-		attrs.push(wgh.AllowedipAFamily, nlenc.Uint16Bytes(family))
+		nae := netlink.NewAttributeEncoder()
 
-		attrs.push(wgh.AllowedipAIpaddr, ipn.IP)
+		nae.Uint16(wgh.AllowedipAFamily, family)
+		nae.Bytes(wgh.AllowedipAIpaddr, ipn.IP)
 
 		ones, _ := ipn.Mask.Size()
-		attrs.push(wgh.AllowedipACidrMask, []byte{uint8(ones)})
-
-		b, err := netlink.MarshalAttributes(attrs)
-		if err != nil {
-			return nil, err
-		}
+		nae.Uint8(wgh.AllowedipACidrMask, uint8(ones))
 
 		// Netlink arrays use type as an array index.
-		ipArr.push(uint16(i), b)
+		ae.Do(uint16(i), nae.Encode)
 	}
 
-	return netlink.MarshalAttributes(ipArr)
-}
-
-// nlAttrs is a slice of netlink.Attributes.
-type nlAttrs []netlink.Attribute
-
-// push adds a new netlink.Attribute with type t and data b.
-func (a *nlAttrs) push(t uint16, b []byte) {
-	*a = append(*a, netlink.Attribute{
-		Type: t,
-		Data: b,
-	})
+	return ae.Encode()
 }
 
 // isValidIP determines if IP is a valid IPv4 or IPv6 address.
