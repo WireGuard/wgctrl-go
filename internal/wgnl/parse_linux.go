@@ -261,8 +261,12 @@ func parseTimespec(t *time.Time) func(b []byte) error {
 			return fmt.Errorf("wireguardnl: unexpected timespec size: %d", len(b))
 		}
 
+		// Note: unix.Timespec uses different sized integers on different
+		// architectures, so an explicit conversion to int64 is required, even
+		// though it isn't needed on amd64.
 		ts := *(*unix.Timespec)(unsafe.Pointer(&b[0]))
-		*t = time.Unix(ts.Sec, ts.Nsec)
+		*t = time.Unix(int64(ts.Sec), int64(ts.Nsec))
+
 		return nil
 	}
 }
