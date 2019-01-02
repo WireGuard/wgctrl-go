@@ -157,9 +157,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 			devices: []*wgtypes.Device{
 				{
 					Name: okName,
+					Type: wgtypes.LinuxKernel,
 				},
 				{
 					Name: "wg1",
+					Type: wgtypes.LinuxKernel,
 				},
 			},
 		},
@@ -270,6 +272,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 			devices: []*wgtypes.Device{
 				{
 					Name:         okName,
+					Type:         wgtypes.LinuxKernel,
 					PrivateKey:   testKey,
 					PublicKey:    testKey,
 					ListenPort:   5555,
@@ -427,6 +430,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 			devices: []*wgtypes.Device{
 				{
 					Name:       okName,
+					Type:       wgtypes.LinuxKernel,
 					PrivateKey: testKey,
 					Peers: []wgtypes.Peer{
 						{

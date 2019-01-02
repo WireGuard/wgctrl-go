@@ -12,10 +12,23 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+// A DeviceType specifies the underlying implementation of a WireGuard device.
+type DeviceType int
+
+// Possible DeviceType values.
+const (
+	Unknown DeviceType = iota
+	LinuxKernel
+	Userspace
+)
+
 // A Device is a WireGuard device.
 type Device struct {
 	// Name is the name of the device.
 	Name string
+
+	// Type specifies the underlying implementation of the device.
+	Type DeviceType
 
 	// PrivateKey is the device's private key.
 	PrivateKey Key
