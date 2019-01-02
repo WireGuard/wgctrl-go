@@ -39,6 +39,8 @@ func getDevice(path string) (*wgtypes.Device, error) {
 
 	// TODO(mdlayher): populate interface index too?
 	d.Name = deviceName(path)
+	d.Type = wgtypes.Userspace
+
 	return d, nil
 }
 

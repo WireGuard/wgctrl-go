@@ -49,7 +49,10 @@ func parseDeviceLoop(m genetlink.Message) (*wgtypes.Device, error) {
 		return nil, err
 	}
 
-	var d wgtypes.Device
+	d := wgtypes.Device{
+		Type: wgtypes.LinuxKernel,
+	}
+
 	for ad.Next() {
 		switch ad.Type() {
 		case wgh.DeviceAIfindex:
