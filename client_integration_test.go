@@ -67,6 +67,16 @@ func TestClientIntegration(t *testing.T) {
 			name: "configure many peers",
 			fn:   testConfigureManyPeers,
 		},
+		{
+			name: "reset",
+			fn: func(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+				// Reset devices several times; this used to cause a hang in
+				// wireguard-go in late 2018.
+				for i := 0; i < 10; i++ {
+					resetDevices(t, c, devices)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -79,9 +89,8 @@ func TestClientIntegration(t *testing.T) {
 
 			tt.fn(t, c, devices)
 
-			// TODO(mdlayher): it seems that wireguard-go doesn't like when
-			// the device is "reset".  Investigate and consider resetting
-			// it again here later.
+			// Start with a clean state after each test.
+			resetDevices(t, c, devices)
 		})
 	}
 }
@@ -302,6 +311,27 @@ func testConfigureManyPeers(t *testing.T, c *wireguardctrl.Client, devices []*wg
 		}
 
 		t.Logf("device: %s: %d peers, %d IPs", d.Name, len(dn.Peers), countIPs)
+	}
+}
+
+func resetDevices(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+	t.Helper()
+
+	zero := 0
+	cfg := wgtypes.Config{
+		// Clear device config.
+		PrivateKey:   &wgtypes.Key{},
+		ListenPort:   &zero,
+		FirewallMark: &zero,
+
+		// Clear all peers.
+		ReplacePeers: true,
+	}
+
+	for _, d := range devices {
+		if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+			t.Fatalf("failed to reset %q: %v", d.Name, err)
+		}
 	}
 }
 
