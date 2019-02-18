@@ -169,6 +169,8 @@ func (dp *deviceParser) peerParse(key, value string) {
 		if cidr != nil {
 			p.AllowedIPs = append(p.AllowedIPs, *cidr)
 		}
+	case "protocol_version":
+		p.ProtocolVersion = dp.parseInt(value)
 	}
 }
 
