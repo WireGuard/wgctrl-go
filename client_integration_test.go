@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -35,16 +34,6 @@ func TestClientIntegration(t *testing.T) {
 		// conform to os.IsPermission, so for now, be lenient and assume that
 		// any error here means that permission was denied.
 		t.Skipf("skipping, failed to get devices: %v", err)
-	}
-
-	// wireguard-go in Travis CI doesn't seem to work as of January 2019.
-	// TODO(mdlayher): undo at a later time.
-	if runtime.GOOS == "linux" {
-		for i := range devices {
-			if devices[i].Type == wgtypes.Userspace {
-				devices = append(devices[:i], devices[i+1:]...)
-			}
-		}
 	}
 
 	tests := []struct {
