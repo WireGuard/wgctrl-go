@@ -133,6 +133,8 @@ func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 					p.AllowedIPs = ipns
 					return nil
 				})
+			case wgh.PeerAProtocolVersion:
+				p.ProtocolVersion = int(ad.Uint32())
 			}
 		}
 
