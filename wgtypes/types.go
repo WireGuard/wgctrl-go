@@ -164,6 +164,12 @@ type Peer struct {
 	// 0.0.0.0/0 indicates that all IPv4 addresses are allowed, and ::/0
 	// indicates that all IPv6 addresses are allowed.
 	AllowedIPs []net.IPNet
+
+	// ProtocolVersion specifies which version of the WireGuard protocol is used
+	// for this Peer.
+	//
+	// A value of 0 indicates that the most recent protocol version will be used.
+	ProtocolVersion int
 }
 
 // A Config is a WireGuard device configuration.
@@ -192,6 +198,8 @@ type Config struct {
 	// Peers specifies a list of peer configurations to apply to a device.
 	Peers []PeerConfig
 }
+
+// TODO(mdlayher): consider adding ProtocolVersion in PeerConfig.
 
 // A PeerConfig is a WireGuard device peer configuration.
 //

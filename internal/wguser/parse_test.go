@@ -10,7 +10,7 @@ import (
 )
 
 // Example string source (with some slight modifications to use all fields):
-// https://www.wireguard.com/xplatform/#cross-platform-userspace-implementation.
+// https://www.wireguard.com/xplatform/#example-dialog.
 const okGet = `private_key=e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a
 listen_port=12912
 fwmark=1
@@ -32,6 +32,7 @@ allowed_ip=192.168.4.10/32
 allowed_ip=192.168.4.11/32
 tx_bytes=1212111
 rx_bytes=1929999999
+protocol_version=1
 errno=0
 
 `
@@ -136,6 +137,7 @@ func TestClientDevices(t *testing.T) {
 								Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
 							},
 						},
+						ProtocolVersion: 1,
 					},
 				},
 			},

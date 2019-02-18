@@ -240,6 +240,10 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 											wgtest.MustCIDR("fd00::1/128"),
 										}),
 									},
+									{
+										Type: wgh.PeerAProtocolVersion,
+										Data: nlenc.Uint32Bytes(1),
+									},
 								}),
 							},
 							// "dummy" peer with only necessary fields to verify
@@ -293,6 +297,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 								wgtest.MustCIDR("192.168.1.10/32"),
 								wgtest.MustCIDR("fd00::1/128"),
 							},
+							ProtocolVersion: 1,
 						},
 						{
 							PublicKey: testKey,

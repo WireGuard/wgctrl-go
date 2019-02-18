@@ -162,6 +162,7 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 				PublicKey:         peerKey,
 				LastHandshakeTime: time.Unix(0, 0),
 				AllowedIPs:        ips,
+				ProtocolVersion:   1,
 			}},
 		}
 
