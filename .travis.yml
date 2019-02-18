@@ -4,6 +4,7 @@ go:
 os:
   - linux
   - osx
+dist: xenial
 sudo: required
 env:
   - GOTRACEBACK=all
