@@ -1,0 +1,14 @@
+github.com/google/go-cmp v0.2.0 h1:+dTQ8DZQJz0Mb/HjFlkptS1FeQ4cWSnN941F8aEG4SQ=
+github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
+github.com/mdlayher/genetlink v0.0.0-20181016160152-e97704c1b795 h1:2uvgdCvQ/MUubxqVhOFkeTaI0EZLcjPLVIwgZGWPgxs=
+github.com/mdlayher/genetlink v0.0.0-20181016160152-e97704c1b795/go.mod h1:EOrmeik1bDMaRduo2B+uAYe1HmTq6yF2IMDmJi1GoWk=
+github.com/mdlayher/netlink v0.0.0-20190223165323-fd3a33609cb6 h1:U0tFtONzLmAC5pOF8/Vx/Rg90KBDmw+wVu5sWF4oAVM=
+github.com/mdlayher/netlink v0.0.0-20190223165323-fd3a33609cb6/go.mod h1:a3TlQHkJH2m32RF224Z7LhD5N4mpyR8eUbCoYHywrwg=
+github.com/mikioh/ipaddr v0.0.0-20190227002745-725a6cbe920e h1:Pa/tBadWnc5p6P32+GcWt20TvPB9dqlDbBn81oWptqE=
+github.com/mikioh/ipaddr v0.0.0-20190227002745-725a6cbe920e/go.mod h1:Ickgr2WtCLZ2MDGd4Gr0geeCH5HybhRJbonOgQpvSxc=
+golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b h1:+/WWzjwW6gidDJnMKWLKLX1gxn7irUTF1fLpQovfQ5M=
+golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
+golang.org/x/net v0.0.0-20190227160552-c95aed5357e7 h1:C2F/nMkR/9sfUTpvR3QrjBuTdvMUC/cFajkphs1YLQo=
+golang.org/x/net v0.0.0-20190227160552-c95aed5357e7/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+golang.org/x/sys v0.0.0-20190226215855-775f8194d0f9 h1:N26gncmS+iqc/W/SKhX3ElI5pkt72XYoRLgi5Z70LSc=
+golang.org/x/sys v0.0.0-20190226215855-775f8194d0f9/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
