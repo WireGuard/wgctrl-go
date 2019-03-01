@@ -473,7 +473,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			const (
 				cmd   = wgh.CmdGetDevice
-				flags = netlink.HeaderFlagsRequest | netlink.HeaderFlagsDump
+				flags = netlink.Request | netlink.Dump
 			)
 
 			// Advance through the test messages on subsequent calls.

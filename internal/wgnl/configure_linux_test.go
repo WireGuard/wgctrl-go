@@ -241,7 +241,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			const (
 				cmd   = wgh.CmdSetDevice
-				flags = netlink.HeaderFlagsRequest | netlink.HeaderFlagsAcknowledge
+				flags = netlink.Request | netlink.Acknowledge
 			)
 
 			fn := func(greq genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {

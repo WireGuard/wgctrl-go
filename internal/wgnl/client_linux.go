@@ -89,7 +89,7 @@ func (c *client) Device(name string) (*wgtypes.Device, error) {
 		return nil, os.ErrNotExist
 	}
 
-	flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsDump
+	flags := netlink.Request | netlink.Dump
 
 	// Fetching a device by interface index is possible as well, but we only
 	// support fetching by name as it seems to be more convenient in general.
@@ -121,7 +121,7 @@ func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		// Request acknowledgement of our request from netlink, even though the
 		// output messages are unused.  The netlink package checks and trims the
 		// status code value.
-		flags := netlink.HeaderFlagsRequest | netlink.HeaderFlagsAcknowledge
+		flags := netlink.Request | netlink.Acknowledge
 		if _, err := c.execute(wgh.CmdSetDevice, flags, attrs); err != nil {
 			return err
 		}
