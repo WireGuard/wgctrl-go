@@ -142,18 +142,30 @@ func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 	}
 
 	msgs, err := c.c.Execute(msg, c.family.ID, flags)
-	if err != nil {
-		switch err {
-		// Convert "no such device" and "not a wireguard device" to an error
-		// compatible with os.IsNotExist for easy checking.
-		case unix.ENODEV, unix.ENOTSUP:
-			return nil, os.ErrNotExist
-		default:
-			return nil, err
-		}
+	if err == nil {
+		return msgs, nil
 	}
 
-	return msgs, nil
+	// TODO(mdlayher): should netlink.IsNotExist(ENODEV) == true be added in
+	// package netlink?
+
+	// We don't want to expose netlink errors directly to callers, so unpack
+	// the error for use with os.IsNotExist and similar.
+	oerr, ok := err.(*netlink.OpError)
+	if !ok {
+		// Expect all errors to conform to netlink.OpError.
+		return nil, fmt.Errorf("wgnl: netlink operation returned non-netlink error (please file a bug: https://github.com/mdlayher/wireguardctrl): %v", err)
+	}
+
+	switch oerr.Err {
+	// Convert "no such device" and "not a wireguard device" to an error
+	// compatible with os.IsNotExist for easy checking.
+	case unix.ENODEV, unix.ENOTSUP:
+		return nil, os.ErrNotExist
+	default:
+		// Expose the inner error directly (such as EPERM).
+		return nil, oerr.Err
+	}
 }
 
 // rtnlInterfaces uses rtnetlink to fetch a list of WireGuard interfaces.

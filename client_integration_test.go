@@ -84,6 +84,22 @@ func TestClientIntegration(t *testing.T) {
 	}
 }
 
+func TestClientIntegrationIsNotExist(t *testing.T) {
+	c, err := wireguardctrl.New()
+	if err != nil {
+		if os.IsNotExist(err) {
+			t.Skip("skipping, wireguardctrl is not available on this system")
+		}
+
+		t.Fatalf("failed to open client: %v", err)
+	}
+	defer c.Close()
+
+	if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+		t.Fatalf("expected is not exist error, but got: %v", err)
+	}
+}
+
 func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	for _, d := range devices {
 		t.Logf("device: %s: %s", d.Name, d.PublicKey.String())

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"syscall"
 	"testing"
 	"time"
@@ -71,10 +72,10 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		fn   func(c *client) error
-		msgs []genetlink.Message
-		err  error
+		name  string
+		fn    func(c *client) error
+		msgs  []genetlink.Message
+		errno unix.Errno
 	}{
 		{
 			name: "name: empty",
@@ -84,31 +85,33 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 			},
 		},
 		{
-			name: "name: ENODEV",
-			fn:   device,
-			err:  unix.ENODEV,
+			name:  "name: ENODEV",
+			fn:    device,
+			errno: unix.ENODEV,
 		},
 		{
-			name: "name: ENOTSUP",
-			fn:   device,
-			err:  unix.ENOTSUP,
+			name:  "name: ENOTSUP",
+			fn:    device,
+			errno: unix.ENOTSUP,
 		},
 		{
-			name: "configure: ENODEV",
-			fn:   configure,
-			err:  unix.ENODEV,
+			name:  "configure: ENODEV",
+			fn:    configure,
+			errno: unix.ENODEV,
 		},
 		{
-			name: "configure: ENOTSUP",
-			fn:   configure,
-			err:  unix.ENOTSUP,
+			name:  "configure: ENOTSUP",
+			fn:    configure,
+			errno: unix.ENOTSUP,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := testClient(t, func(_ genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {
-				return tt.msgs, tt.err
+				// We aren't creating a system call error; we are creating a
+				// netlink error inside a message.
+				return tt.msgs, genltest.Error(int(tt.errno))
 			})
 			defer c.Close()
 
@@ -116,6 +119,27 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 				t.Fatalf("expected is not exist, but got: %v", err)
 			}
 		})
+	}
+}
+
+func TestLinuxClientIsPermission(t *testing.T) {
+	u, err := user.Current()
+	if err != nil {
+		t.Fatalf("failed to get current user: %v", err)
+	}
+	if u.Uid == "0" {
+		t.Skip("skipping, test must be run without elevated privileges")
+	}
+
+	c, err := New()
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+	defer c.Close()
+
+	// Check for permission denied as unprivileged user.
+	if _, err := c.Device("wgnotexist0"); !os.IsPermission(err) {
+		t.Fatalf("expected permission denied, but got: %v", err)
 	}
 }
 
