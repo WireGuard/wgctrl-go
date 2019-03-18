@@ -246,8 +246,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 								}),
 							},
-							// "dummy" peer with only necessary fields to verify
-							// multi-peer parsing logic and IPv4/IPv6 parsing.
+							// "dummy" peer with only some necessary fields.
 							{
 								Type: 1,
 								Data: nltest.MustMarshalAttributes([]netlink.Attribute{
@@ -265,6 +264,16 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 												0x00, 0x00, 0x00, 0x01,
 											},
 											Port: sockaddrPort(2222),
+										})))[:],
+									},
+									// Explicitly set last handshake time to
+									// UNIX timestamp 0 to test zero-value
+									// time.Time logic.
+									{
+										Type: wgh.PeerALastHandshakeTime,
+										Data: (*(*[sizeofTimespec]byte)(unsafe.Pointer(&unix.Timespec{
+											Sec:  0,
+											Nsec: 0,
 										})))[:],
 									},
 								}),

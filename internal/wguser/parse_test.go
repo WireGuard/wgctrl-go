@@ -26,8 +26,12 @@ rx_bytes=2224
 allowed_ip=192.168.4.6/32
 persistent_keepalive_interval=111
 endpoint=182.122.22.19:3233
+last_handshake_time_sec=0
+last_handshake_time_nsec=0
 public_key=662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58
 endpoint=5.152.198.39:51820
+last_handshake_time_sec=0
+last_handshake_time_nsec=0
 allowed_ip=192.168.4.10/32
 allowed_ip=192.168.4.11/32
 tx_bytes=1212111
@@ -109,6 +113,9 @@ func TestClientDevices(t *testing.T) {
 							IP:   net.IPv4(182, 122, 22, 19),
 							Port: 3233,
 						},
+						// Zero-value because UNIX timestamp of 0. Explicitly
+						// set for documentation purposes here.
+						LastHandshakeTime:           time.Time{},
 						PersistentKeepaliveInterval: 111000000000,
 						ReceiveBytes:                2224,
 						TransmitBytes:               38333,
