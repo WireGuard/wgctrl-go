@@ -174,7 +174,7 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 			ListenPort: port,
 			Peers: []wgtypes.Peer{{
 				PublicKey:         peerKey,
-				LastHandshakeTime: time.Unix(0, 0),
+				LastHandshakeTime: time.Time{},
 				AllowedIPs:        ips,
 				ProtocolVersion:   1,
 			}},

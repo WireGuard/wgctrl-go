@@ -270,7 +270,12 @@ func parseTimespec(t *time.Time) func(b []byte) error {
 		// architectures, so an explicit conversion to int64 is required, even
 		// though it isn't needed on amd64.
 		ts := *(*unix.Timespec)(unsafe.Pointer(&b[0]))
-		*t = time.Unix(int64(ts.Sec), int64(ts.Nsec))
+
+		// Only set fields if UNIX timestamp value is greater than 0, so the
+		// caller will see a zero-value time.Time otherwise.
+		if ts.Sec > 0 && ts.Nsec > 0 {
+			*t = time.Unix(int64(ts.Sec), int64(ts.Nsec))
+		}
 
 		return nil
 	}
