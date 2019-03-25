@@ -4,6 +4,7 @@ package wgtypes
 
 import (
 	"crypto/rand"
+	"encoding"
 	"encoding/base64"
 	"fmt"
 	"net"
@@ -178,6 +179,28 @@ type Peer struct {
 // Config fields, pointer types are used for some of these fields. Only
 // pointer fields which are not nil will be applied when configuring a device.
 type Config struct {
+	// list of IP (v4 or v6) addresses (optionally with CIDR masks) to be assigned to the interface. May be specified multiple times.
+	Address []net.IPNet
+
+	// list of IP (v4 or v6) addresses to be set as the interface’s DNS servers. May be specified multiple times. Upon bringing the interface up, this runs ‘resolvconf -a tun.INTERFACE -m 0 -x‘ and upon bringing it down, this runs ‘resolvconf -d tun.INTERFACE‘. If these particular invocations of resolvconf(8) are undesirable, the PostUp and PostDown keys below may be used instead.
+	DNS []net.IP
+
+	// MTU — if not specified, the MTU is automatically determined from the endpoint addresses or the system default route, which is usually a sane choice. However, to manually specify an MTU to override this automatic discovery, this value may be specified explicitly.
+	MTU *int
+
+	// — Controls the routing table to which routes are added. There are two special values: ‘off’ disables the creation of routes altogether, and ‘auto’ (the default) adds routes to the default table and enables special handling of default routes.
+	Table *string
+
+	// PreUp, PostUp, PreDown, PostDown — script snippets which will be executed by bash(1) before/after setting up/tearing down the interface, most commonly used to configure custom DNS options or firewall rules. The special string ‘%i’ is expanded to INTERFACE. Each one may be specified multiple times, in which case the commands are executed in order.
+
+	PreUp string
+	PostUp string
+	PreDown string
+	PostDown string
+
+	// SaveConfig — if set to ‘true’, the configuration is saved from the current state of the interface upon shutdown.
+	SaveConfig string
+
 	// PrivateKey specifies a private key configuration, if not nil.
 	//
 	// A non-nil, zero-value, Key will clear the private key.
@@ -198,6 +221,9 @@ type Config struct {
 	// Peers specifies a list of peer configurations to apply to a device.
 	Peers []PeerConfig
 }
+
+// TODO: Implment TextUnmarshaler
+var _ encoding.TextMarshaler = (*Config)(nil)
 
 // TODO(mdlayher): consider adding ProtocolVersion in PeerConfig.
 
