@@ -19,3 +19,8 @@ of those operating systems.
 
 If you are aware of any efforts on this front, please
 [file an issue](https://github.com/mdlayher/wireguardctrl/issues/new).
+
+This package implements WireGuard configuration protocol operations, enabling
+the configuration of existing WireGuard devices. Operations such as creating
+WireGuard devices, or applying IP addresses to those devices, are out of scope
+for this package.
