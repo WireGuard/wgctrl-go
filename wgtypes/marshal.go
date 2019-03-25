@@ -10,8 +10,7 @@ import (
 
 // TODO: Add tests
 
-const wgtypeTemplateSpec =
-	`[Interface]
+const wgtypeTemplateSpec = `[Interface]
 {{- range := .Address }}
 Address = {{ . }}
 {{ end }}
@@ -47,7 +46,7 @@ var cfgTemplate = template.Must(
 		Funcs(template.FuncMap(map[string]interface{}{"wgKey": serializeKey})).
 		Parse(wgtypeTemplateSpec))
 
-func (cfg *Config)MarshalText() (text []byte, err error){
+func (cfg *Config) MarshalText() (text []byte, err error) {
 	buff := &bytes.Buffer{}
 	if err := cfgTemplate.Execute(buff, cfg); err != nil {
 		return nil, err

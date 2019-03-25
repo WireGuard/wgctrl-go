@@ -193,9 +193,9 @@ type Config struct {
 
 	// PreUp, PostUp, PreDown, PostDown — script snippets which will be executed by bash(1) before/after setting up/tearing down the interface, most commonly used to configure custom DNS options or firewall rules. The special string ‘%i’ is expanded to INTERFACE. Each one may be specified multiple times, in which case the commands are executed in order.
 
-	PreUp string
-	PostUp string
-	PreDown string
+	PreUp    string
+	PostUp   string
+	PreDown  string
 	PostDown string
 
 	// SaveConfig — if set to ‘true’, the configuration is saved from the current state of the interface upon shutdown.
