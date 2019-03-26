@@ -101,6 +101,17 @@ func NewKey(b []byte) (Key, error) {
 	return k, nil
 }
 
+// ParseKey parses a Key from a base64-encoded string, as produced by the
+// Key.String method.
+func ParseKey(s string) (Key, error) {
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return Key{}, fmt.Errorf("wgtypes: failed to parse base64-encoded key: %v", err)
+	}
+
+	return NewKey(b)
+}
+
 // PublicKey computes a public key from the private key k.
 //
 // PublicKey should only be called when k is a private key.
@@ -117,7 +128,9 @@ func (k Key) PublicKey() Key {
 	return Key(pub)
 }
 
-// String returns the base64 string representation of a Key.
+// String returns the base64-encoded string representation of a Key.
+//
+// ParseKey can be used to produce a new Key from this string.
 func (k Key) String() string {
 	return base64.StdEncoding.EncodeToString(k[:])
 }
