@@ -1,7 +1,7 @@
 package wgtypes_test
 
 import (
-	"encoding/base64"
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -18,14 +18,9 @@ func TestPreparedKeys(t *testing.T) {
 		public  = "aPxGwq8zERHQ3Q1cOZFdJ+cvJX5Ka4mLN38AyYKYF10="
 	)
 
-	b, err := base64.StdEncoding.DecodeString(private)
+	priv, err := wgtypes.ParseKey(private)
 	if err != nil {
-		t.Fatalf("failed to decode private key: %v", err)
-	}
-
-	priv, err := wgtypes.NewKey(b)
-	if err != nil {
-		t.Fatalf("failed to convert to Key: %v", err)
+		t.Fatalf("failed to parse private key: %v", err)
 	}
 
 	if diff := cmp.Diff(private, priv.String()); diff != "" {
@@ -49,6 +44,56 @@ func TestKeyExchange(t *testing.T) {
 
 	if diff := cmp.Diff(sharedA, sharedB); diff != "" {
 		t.Fatalf("unexpected shared secret (-want +got):\n%s", diff)
+	}
+}
+
+func TestBadKeys(t *testing.T) {
+	// Adapt to fit the signature used in the test table.
+	parseKey := func(b []byte) (wgtypes.Key, error) {
+		return wgtypes.ParseKey(string(b))
+	}
+
+	tests := []struct {
+		name string
+		b    []byte
+		fn   func(b []byte) (wgtypes.Key, error)
+	}{
+		{
+			name: "bad base64",
+			b:    []byte("xxx"),
+			fn:   parseKey,
+		},
+		{
+			name: "short base64",
+			b:    []byte("aGVsbG8="),
+			fn:   parseKey,
+		},
+		{
+			name: "short key",
+			b:    []byte("xxx"),
+			fn:   wgtypes.NewKey,
+		},
+		{
+			name: "long base64",
+			b:    []byte("ZGVhZGJlZWZkZWFkYmVlZmRlYWRiZWVmZGVhZGJlZWZkZWFkYmVlZg=="),
+			fn:   parseKey,
+		},
+		{
+			name: "long bytes",
+			b:    bytes.Repeat([]byte{0xff}, 40),
+			fn:   wgtypes.NewKey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := tt.fn(tt.b)
+			if err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+
+			t.Logf("OK error: %v", err)
+		})
 	}
 }
 
