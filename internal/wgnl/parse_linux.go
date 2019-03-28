@@ -99,46 +99,8 @@ func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 	// nested attributes for a new Peer.
 	ps := make([]wgtypes.Peer, 0, len(attrs))
 	for _, a := range attrs {
-		ad, err := netlink.NewAttributeDecoder(a.Data)
+		p, err := parsePeer(a.Data)
 		if err != nil {
-			return nil, err
-		}
-
-		var p wgtypes.Peer
-		for ad.Next() {
-			switch ad.Type() {
-			case wgh.PeerAPublicKey:
-				ad.Do(parseKey(&p.PublicKey))
-			case wgh.PeerAPresharedKey:
-				ad.Do(parseKey(&p.PresharedKey))
-			case wgh.PeerAEndpoint:
-				p.Endpoint = &net.UDPAddr{}
-				ad.Do(parseSockaddr(p.Endpoint))
-			case wgh.PeerAPersistentKeepaliveInterval:
-				// TODO(mdlayher): is this actually in seconds?
-				p.PersistentKeepaliveInterval = time.Duration(ad.Uint16()) * time.Second
-			case wgh.PeerALastHandshakeTime:
-				ad.Do(parseTimespec(&p.LastHandshakeTime))
-			case wgh.PeerARxBytes:
-				p.ReceiveBytes = int64(ad.Uint64())
-			case wgh.PeerATxBytes:
-				p.TransmitBytes = int64(ad.Uint64())
-			case wgh.PeerAAllowedips:
-				ad.Do(func(b []byte) error {
-					ipns, err := parseAllowedIPs(b)
-					if err != nil {
-						return err
-					}
-
-					p.AllowedIPs = ipns
-					return nil
-				})
-			case wgh.PeerAProtocolVersion:
-				p.ProtocolVersion = int(ad.Uint32())
-			}
-		}
-
-		if err := ad.Err(); err != nil {
 			return nil, err
 		}
 
@@ -146,6 +108,53 @@ func parsePeers(b []byte) ([]wgtypes.Peer, error) {
 	}
 
 	return ps, nil
+}
+
+// parsePeer parses a single Peer from a netlink attribute payload.
+func parsePeer(b []byte) (wgtypes.Peer, error) {
+	ad, err := netlink.NewAttributeDecoder(b)
+	if err != nil {
+		return wgtypes.Peer{}, err
+	}
+
+	var p wgtypes.Peer
+	for ad.Next() {
+		switch ad.Type() {
+		case wgh.PeerAPublicKey:
+			ad.Do(parseKey(&p.PublicKey))
+		case wgh.PeerAPresharedKey:
+			ad.Do(parseKey(&p.PresharedKey))
+		case wgh.PeerAEndpoint:
+			p.Endpoint = &net.UDPAddr{}
+			ad.Do(parseSockaddr(p.Endpoint))
+		case wgh.PeerAPersistentKeepaliveInterval:
+			p.PersistentKeepaliveInterval = time.Duration(ad.Uint16()) * time.Second
+		case wgh.PeerALastHandshakeTime:
+			ad.Do(parseTimespec(&p.LastHandshakeTime))
+		case wgh.PeerARxBytes:
+			p.ReceiveBytes = int64(ad.Uint64())
+		case wgh.PeerATxBytes:
+			p.TransmitBytes = int64(ad.Uint64())
+		case wgh.PeerAAllowedips:
+			ad.Do(func(b []byte) error {
+				ipns, err := parseAllowedIPs(b)
+				if err != nil {
+					return err
+				}
+
+				p.AllowedIPs = ipns
+				return nil
+			})
+		case wgh.PeerAProtocolVersion:
+			p.ProtocolVersion = int(ad.Uint32())
+		}
+	}
+
+	if err := ad.Err(); err != nil {
+		return wgtypes.Peer{}, err
+	}
+
+	return p, nil
 }
 
 // parseAllowedIPs parses a slice of net.IPNet from a netlink attribute payload.
