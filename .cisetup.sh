@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
 
-# !! This script is meant for use in Travis CI only !!
+# !! This script is meant for use in CI build use only !!
 
 WGUSERDEV="wggo0"
 
@@ -19,8 +19,8 @@ if [ "$KERNEL" == "Linux" ]; then
     # Also allow the use of wireguard-go for additional testing.
     export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1
 else
-    # Mac wants devices named "utun0-9".
-    WGUSERDEV="utun9"
+    # Mac will automatically assign a device name if we specify "utun".
+    WGUSERDEV="utun"
 fi
 
 # Set up and run wireguard-go on all OSes.
