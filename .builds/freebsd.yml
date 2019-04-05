@@ -1,0 +1,24 @@
+image: freebsd/latest
+packages:
+  - go
+sources:
+  - https://github.com/mdlayher/wireguardctrl
+environment:
+  GO111MODULE: "on"
+tasks:
+  - setup-wireguard: |
+      ./wireguardctrl/.cibuild.sh
+  - build: |
+      go version
+      go get golang.org/x/lint/golint
+      go get honnef.co/go/tools/cmd/staticcheck
+      cd wireguardctrl/
+      diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
+      go vet ./...
+      /home/build/go/bin/staticcheck ./...
+      /home/build/go/bin/golint -set_exit_status ./...
+      go test -v -race ./...
+      go test -c -race -tags=integration .
+      # Use wireguard-go for additional testing.
+      sudo /home/build/go/bin/wireguard-go wguser0
+      sudo ./wireguardctrl.test -test.v -test.run TestClientIntegration
