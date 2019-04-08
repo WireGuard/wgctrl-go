@@ -1,0 +1,26 @@
+image: ubuntu/lts
+sources:
+  - https://github.com/mdlayher/wireguardctrl
+environment:
+  GO111MODULE: "on"
+tasks:
+  - install-go: |
+      wget -q https://dl.google.com/go/go1.12.2.linux-amd64.tar.gz
+      sudo tar -C /usr/local -xzf go1.12.2.linux-amd64.tar.gz
+      sudo ln -s /usr/local/go/bin/go /usr/bin/go
+  - setup-wireguard: |
+      ./wireguardctrl/.cibuild.sh
+  - build: |
+      go version
+      go get golang.org/x/lint/golint
+      go get honnef.co/go/tools/cmd/staticcheck
+      cd wireguardctrl/
+      diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
+      go vet ./...
+      /home/build/go/bin/staticcheck ./...
+      /home/build/go/bin/golint -set_exit_status ./...
+      go test -v -race ./...
+      go test -c -race -tags=integration .
+      # Allow the use of wireguard-go for additional testing.
+      sudo WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1 /home/build/go/bin/wireguard-go wguser0
+      sudo ./wireguardctrl.test -test.v -test.run TestClientIntegration
