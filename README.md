@@ -1,4 +1,4 @@
-# wireguardctrl [![Build Status](https://travis-ci.org/mdlayher/wireguardctrl.svg?branch=master)](https://travis-ci.org/mdlayher/wireguardctrl) [![GoDoc](https://godoc.org/github.com/mdlayher/wireguardctrl?status.svg)](https://godoc.org/github.com/mdlayher/wireguardctrl) [![Go Report Card](https://goreportcard.com/badge/github.com/mdlayher/wireguardctrl)](https://goreportcard.com/report/github.com/mdlayher/wireguardctrl)
+# wireguardctrl [![builds.sr.ht status](https://builds.sr.ht/~mdlayher/wireguardctrl.svg)](https://builds.sr.ht/~mdlayher/wireguardctrl?) [![GoDoc](https://godoc.org/github.com/mdlayher/wireguardctrl?status.svg)](https://godoc.org/github.com/mdlayher/wireguardctrl) [![Go Report Card](https://goreportcard.com/badge/github.com/mdlayher/wireguardctrl)](https://goreportcard.com/report/github.com/mdlayher/wireguardctrl)
 
 Package `wireguardctrl` enables control of WireGuard devices on multiple platforms.
 
