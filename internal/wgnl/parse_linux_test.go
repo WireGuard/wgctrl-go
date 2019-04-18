@@ -4,6 +4,7 @@ package wgnl
 
 import (
 	"net"
+	"runtime"
 	"testing"
 	"time"
 	"unsafe"
@@ -220,7 +221,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: wgh.PeerALastHandshakeTime,
-										Data: (*(*[sizeofTimespec]byte)(unsafe.Pointer(&unix.Timespec{
+										Data: (*(*[sizeofTimespec64]byte)(unsafe.Pointer(&timespec64{
 											Sec:  10,
 											Nsec: 20,
 										})))[:],
@@ -269,9 +270,14 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									// Explicitly set last handshake time to
 									// UNIX timestamp 0 to test zero-value
 									// time.Time logic.
+									//
+									// In addition, we'll also test the timespec32
+									// logic here, although we would never
+									// expect WireGuard to return mixed size
+									// values on the same platform.
 									{
 										Type: wgh.PeerALastHandshakeTime,
-										Data: (*(*[sizeofTimespec]byte)(unsafe.Pointer(&unix.Timespec{
+										Data: (*(*[sizeofTimespec32]byte)(unsafe.Pointer(&timespec32{
 											Sec:  0,
 											Nsec: 0,
 										})))[:],
@@ -510,5 +516,57 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				t.Fatalf("unexpected devices (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func Test_timespec32MemoryLayout(t *testing.T) {
+	// Assume unix.Timespec has 32-bit integers exclusively.
+	if a := runtime.GOARCH; a != "386" {
+		t.Skipf("skipping, architecture %q not handled in 32-bit only test", a)
+	}
+
+	// Verify unix.Timespec and timespec32 have an identical memory layout.
+	uts := unix.Timespec{
+		Sec:  1,
+		Nsec: 2,
+	}
+
+	if diff := cmp.Diff(sizeofTimespec32, int(unsafe.Sizeof(unix.Timespec{}))); diff != "" {
+		t.Fatalf("unexpected timespec size (-want +got):\n%s", diff)
+	}
+
+	ts := *(*timespec32)(unsafe.Pointer(&uts))
+
+	if diff := cmp.Diff(uts.Sec, ts.Sec); diff != "" {
+		t.Fatalf("unexpected timespec seconds (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(uts.Nsec, ts.Nsec); diff != "" {
+		t.Fatalf("unexpected timespec nanoseconds (-want +got):\n%s", diff)
+	}
+}
+
+func Test_timespec64MemoryLayout(t *testing.T) {
+	// Assume unix.Timespec has 64-bit integers exclusively.
+	if a := runtime.GOARCH; a != "amd64" {
+		t.Skipf("skipping, architecture %q not handled in 64-bit only test", a)
+	}
+
+	// Verify unix.Timespec and timespec64 have an identical memory layout.
+	uts := unix.Timespec{
+		Sec:  1,
+		Nsec: 2,
+	}
+
+	if diff := cmp.Diff(sizeofTimespec64, int(unsafe.Sizeof(unix.Timespec{}))); diff != "" {
+		t.Fatalf("unexpected timespec size (-want +got):\n%s", diff)
+	}
+
+	ts := *(*timespec64)(unsafe.Pointer(&uts))
+
+	if diff := cmp.Diff(uts.Sec, ts.Sec); diff != "" {
+		t.Fatalf("unexpected timespec seconds (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(uts.Nsec, ts.Nsec); diff != "" {
+		t.Fatalf("unexpected timespec nanoseconds (-want +got):\n%s", diff)
 	}
 }
