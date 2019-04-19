@@ -266,24 +266,53 @@ func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
 	}
 }
 
-const sizeofTimespec = int(unsafe.Sizeof(unix.Timespec{}))
+// timespec32 is a unix.Timespec with 32-bit integers.
+type timespec32 struct {
+	Sec  int32
+	Nsec int32
+}
+
+// timespec64 is a unix.Timespec with 64-bit integers.
+type timespec64 struct {
+	Sec  int64
+	Nsec int64
+}
+
+const (
+	sizeofTimespec32 = int(unsafe.Sizeof(timespec32{}))
+	sizeofTimespec64 = int(unsafe.Sizeof(timespec64{}))
+)
 
 // parseTimespec parses a time.Time from raw timespec bytes.
 func parseTimespec(t *time.Time) func(b []byte) error {
 	return func(b []byte) error {
-		if len(b) != sizeofTimespec {
-			return fmt.Errorf("wireguardnl: unexpected timespec size: %d", len(b))
-		}
+		// It would appear that WireGuard can return a __kernel_timespec which
+		// uses 64-bit integers, even on 32-bit platforms. Clarification of this
+		// behavior is being sought in:
+		// https://lists.zx2c4.com/pipermail/wireguard/2019-April/004088.html.
+		//
+		// In the mean time, be liberal and accept 32-bit and 64-bit variants.
+		var sec, nsec int64
 
-		// Note: unix.Timespec uses different sized integers on different
-		// architectures, so an explicit conversion to int64 is required, even
-		// though it isn't needed on amd64.
-		ts := *(*unix.Timespec)(unsafe.Pointer(&b[0]))
+		switch len(b) {
+		case sizeofTimespec32:
+			ts := *(*timespec32)(unsafe.Pointer(&b[0]))
+
+			sec = int64(ts.Sec)
+			nsec = int64(ts.Nsec)
+		case sizeofTimespec64:
+			ts := *(*timespec64)(unsafe.Pointer(&b[0]))
+
+			sec = ts.Sec
+			nsec = ts.Nsec
+		default:
+			return fmt.Errorf("wireguardnl: unexpected timespec size: %d bytes, expected 8 or 16 bytes", len(b))
+		}
 
 		// Only set fields if UNIX timestamp value is greater than 0, so the
 		// caller will see a zero-value time.Time otherwise.
-		if ts.Sec > 0 && ts.Nsec > 0 {
-			*t = time.Unix(int64(ts.Sec), int64(ts.Nsec))
+		if sec > 0 && nsec > 0 {
+			*t = time.Unix(sec, nsec)
 		}
 
 		return nil
