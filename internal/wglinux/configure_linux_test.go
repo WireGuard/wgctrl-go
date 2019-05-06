@@ -1,6 +1,6 @@
 //+build linux
 
-package wgnl
+package wglinux
 
 import (
 	"net"
@@ -13,7 +13,7 @@ import (
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
-	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
+	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/internal/wgtest"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"github.com/mikioh/ipaddr"

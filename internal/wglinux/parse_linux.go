@@ -1,6 +1,6 @@
 //+build linux
 
-package wgnl
+package wglinux
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
-	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
+	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
 )

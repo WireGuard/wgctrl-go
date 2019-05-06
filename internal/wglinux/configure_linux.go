@@ -1,6 +1,6 @@
 //+build linux
 
-package wgnl
+package wglinux
 
 import (
 	"encoding/binary"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
-	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
+	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
 )
@@ -215,7 +215,7 @@ func peerBytes(p wgtypes.PeerConfig) ([]byte, error) {
 // sockaddrBytes converts a net.UDPAddr to raw sockaddr_in or sockaddr_in6 bytes.
 func sockaddrBytes(endpoint net.UDPAddr) ([]byte, error) {
 	if !isValidIP(endpoint.IP) {
-		return nil, fmt.Errorf("wgnl: invalid endpoint IP: %s", endpoint.IP.String())
+		return nil, fmt.Errorf("wglinux: invalid endpoint IP: %s", endpoint.IP.String())
 	}
 
 	// Is this an IPv6 address?
@@ -251,7 +251,7 @@ func allowedIPBytes(ipns []net.IPNet) ([]byte, error) {
 
 	for i, ipn := range ipns {
 		if !isValidIP(ipn.IP) {
-			return nil, fmt.Errorf("wgnl: invalid allowed IP: %s", ipn.IP.String())
+			return nil, fmt.Errorf("wglinux: invalid allowed IP: %s", ipn.IP.String())
 		}
 
 		family := uint16(unix.AF_INET6)

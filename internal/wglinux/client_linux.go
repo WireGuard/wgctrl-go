@@ -1,6 +1,6 @@
 //+build linux
 
-package wgnl
+package wglinux
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
-	"github.com/mdlayher/wireguardctrl/internal/wgnl/internal/wgh"
+	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
 )
@@ -154,7 +154,7 @@ func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 	oerr, ok := err.(*netlink.OpError)
 	if !ok {
 		// Expect all errors to conform to netlink.OpError.
-		return nil, fmt.Errorf("wgnl: netlink operation returned non-netlink error (please file a bug: https://github.com/mdlayher/wireguardctrl): %v", err)
+		return nil, fmt.Errorf("wglinux: netlink operation returned non-netlink error (please file a bug: https://github.com/mdlayher/wireguardctrl): %v", err)
 	}
 
 	switch oerr.Err {
@@ -174,12 +174,12 @@ func rtnlInterfaces() ([]string, error) {
 	// interfaces, so we can begin filtering it down to just WireGuard devices.
 	tab, err := syscall.NetlinkRIB(unix.RTM_GETLINK, unix.AF_UNSPEC)
 	if err != nil {
-		return nil, fmt.Errorf("wgnl: failed to get list of interfaces from rtnetlink: %v", err)
+		return nil, fmt.Errorf("wglinux: failed to get list of interfaces from rtnetlink: %v", err)
 	}
 
 	msgs, err := syscall.ParseNetlinkMessage(tab)
 	if err != nil {
-		return nil, fmt.Errorf("wgnl: failed to parse rtnetlink messages: %v", err)
+		return nil, fmt.Errorf("wglinux: failed to parse rtnetlink messages: %v", err)
 	}
 
 	return parseRTNLInterfaces(msgs)
@@ -197,7 +197,7 @@ func parseRTNLInterfaces(msgs []syscall.NetlinkMessage) ([]string, error) {
 		}
 
 		if len(m.Data) < unix.SizeofIfInfomsg {
-			return nil, fmt.Errorf("wgnl: rtnetlink message is too short for ifinfomsg: %d", len(m.Data))
+			return nil, fmt.Errorf("wglinux: rtnetlink message is too short for ifinfomsg: %d", len(m.Data))
 		}
 
 		ad, err := netlink.NewAttributeDecoder(m.Data[syscall.SizeofIfInfomsg:])
