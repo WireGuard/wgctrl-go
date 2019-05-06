@@ -1,6 +1,6 @@
 //+build !linux
 
-package wgnl
+package wglinux
 
 import (
 	"fmt"

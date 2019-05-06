@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/mdlayher/wireguardctrl/internal/wgnl"
+	"github.com/mdlayher/wireguardctrl/internal/wglinux"
 	"github.com/mdlayher/wireguardctrl/internal/wguser"
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
@@ -46,7 +46,7 @@ func newClients() ([]wgClient, error) {
 	var cs []wgClient
 	// TODO(mdlayher): smarter detection logic than just the OS in use.
 	if runtime.GOOS == "linux" {
-		nlc, err := wgnl.New()
+		nlc, err := wglinux.New()
 		if err != nil {
 			return nil, err
 		}

@@ -1,4 +1,4 @@
-package wgnl
+package wglinux
 
 import (
 	"io"
