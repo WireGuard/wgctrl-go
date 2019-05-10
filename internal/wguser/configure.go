@@ -5,20 +5,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"strings"
 
 	"github.com/mdlayher/wireguardctrl/wgtypes"
 )
 
-// configureDevice configures the device at the UNIX socket specified by path.
-func configureDevice(path string, cfg wgtypes.Config) error {
-	c, err := net.Dial("unix", path)
+// configureDevice configures a device specified by its path.
+func (c *Client) configureDevice(device string, cfg wgtypes.Config) error {
+	conn, err := c.dial(device)
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer conn.Close()
 
 	// Start with set command.
 	var buf bytes.Buffer
@@ -29,12 +28,12 @@ func configureDevice(path string, cfg wgtypes.Config) error {
 	buf.WriteString("\n")
 
 	// Apply configuration for the device and then check the error number.
-	if _, err := io.Copy(c, &buf); err != nil {
+	if _, err := io.Copy(conn, &buf); err != nil {
 		return err
 	}
 
 	res := make([]byte, 32)
-	n, err := c.Read(res)
+	n, err := conn.Read(res)
 	if err != nil {
 		return err
 	}

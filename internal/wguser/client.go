@@ -1,7 +1,7 @@
 package wguser
 
 import (
-	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,19 +11,18 @@ import (
 
 // A Client provides access to userspace WireGuard device information.
 type Client struct {
-	findSockets func() ([]string, error)
+	dial func(device string) (net.Conn, error)
+	find func() ([]string, error)
 }
 
 // New creates a new Client.
 func New() (*Client, error) {
 	return &Client{
-		findSockets: func() ([]string, error) {
-			return findSocketFiles([]string{
-				// It seems that /var/run is a common location between Linux
-				// and the BSDs, even though it's a symlink on Linux.
-				"/var/run/wireguard",
-			})
-		},
+		// Operating system-specific functions which can identify and connect
+		// to userspace WireGuard devices. These functions can also be
+		// overridden for tests.
+		dial: dial,
+		find: find,
 	}, nil
 }
 
@@ -32,37 +31,37 @@ func (c *Client) Close() error { return nil }
 
 // Devices implements wireguardctrl.wgClient.
 func (c *Client) Devices() ([]*wgtypes.Device, error) {
-	socks, err := c.findSockets()
+	devices, err := c.find()
 	if err != nil {
 		return nil, err
 	}
 
-	var ds []*wgtypes.Device
-	for _, sock := range socks {
-		d, err := getDevice(sock)
+	var wgds []*wgtypes.Device
+	for _, d := range devices {
+		wgd, err := c.getDevice(d)
 		if err != nil {
 			return nil, err
 		}
 
-		ds = append(ds, d)
+		wgds = append(wgds, wgd)
 	}
 
-	return ds, nil
+	return wgds, nil
 }
 
 // Device implements wireguardctrl.wgClient.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
-	socks, err := c.findSockets()
+	devices, err := c.find()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, sock := range socks {
-		if name != deviceName(sock) {
+	for _, d := range devices {
+		if name != deviceName(d) {
 			continue
 		}
 
-		return getDevice(sock)
+		return c.getDevice(d)
 	}
 
 	return nil, os.ErrNotExist
@@ -70,17 +69,17 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 
 // ConfigureDevice implements wireguardctrl.wgClient.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
-	socks, err := c.findSockets()
+	devices, err := c.find()
 	if err != nil {
 		return err
 	}
 
-	for _, sock := range socks {
-		if name != deviceName(sock) {
+	for _, d := range devices {
+		if name != deviceName(d) {
 			continue
 		}
 
-		return configureDevice(sock, cfg)
+		return c.configureDevice(d, cfg)
 	}
 
 	return os.ErrNotExist
@@ -89,29 +88,4 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 // deviceName infers a device name from an absolute file path with extension.
 func deviceName(sock string) string {
 	return strings.TrimSuffix(filepath.Base(sock), filepath.Ext(sock))
-}
-
-// findSocketFiles looks for UNIX socket files in the specified directories.
-func findSocketFiles(dirs []string) ([]string, error) {
-	var socks []string
-	for _, d := range dirs {
-		files, err := ioutil.ReadDir(d)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-
-			return nil, err
-		}
-
-		for _, f := range files {
-			if f.Mode()&os.ModeSocket == 0 {
-				continue
-			}
-
-			socks = append(socks, filepath.Join(d, f.Name()))
-		}
-	}
-
-	return socks, nil
 }

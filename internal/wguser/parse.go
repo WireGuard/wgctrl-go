@@ -17,28 +17,28 @@ import (
 // The WireGuard userspace configuration protocol is described here:
 // https://www.wireguard.com/xplatform/#cross-platform-userspace-implementation.
 
-// getDevice gathers device information from the UNIX socket specified by path
+// getDevice gathers device information from a device specified by its path
 // and returns a Device.
-func getDevice(path string) (*wgtypes.Device, error) {
-	c, err := net.Dial("unix", path)
+func (c *Client) getDevice(device string) (*wgtypes.Device, error) {
+	conn, err := c.dial(device)
 	if err != nil {
 		return nil, err
 	}
-	defer c.Close()
+	defer conn.Close()
 
 	// Get information about this device.
-	if _, err := io.WriteString(c, "get=1\n\n"); err != nil {
+	if _, err := io.WriteString(conn, "get=1\n\n"); err != nil {
 		return nil, err
 	}
 
 	// Parse the device from the incoming data stream.
-	d, err := parseDevice(c)
+	d, err := parseDevice(conn)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO(mdlayher): populate interface index too?
-	d.Name = deviceName(path)
+	d.Name = deviceName(device)
 	d.Type = wgtypes.Userspace
 
 	return d, nil
