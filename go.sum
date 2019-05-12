@@ -4,6 +4,8 @@ github.com/mdlayher/genetlink v0.0.0-20190419142426-b806ce69960a h1:tIPUNU99ot2T
 github.com/mdlayher/genetlink v0.0.0-20190419142426-b806ce69960a/go.mod h1:J+g63IQCVwjKLOxodrxOylt23f7d5vVB9rgNh+T13Uk=
 github.com/mdlayher/netlink v0.0.0-20190419142405-71c9566a34ae h1:Ec6B7pKh4YZyKI9VtTeZmN1GGLvAIT/fs2votDcWnMU=
 github.com/mdlayher/netlink v0.0.0-20190419142405-71c9566a34ae/go.mod h1:TR9n0u8mie4+iszGTMjP6QRwUZQNynkhDbXTLF6DUi4=
+github.com/microsoft/go-winio v0.4.12 h1:3vDRRsUnj2dKE7QKoedntu9hbuD8gzaVd2E2UZioqx4=
+github.com/microsoft/go-winio v0.4.12/go.mod h1:kcIxxtKZE55DEncT/EOvFiygPobhUWpSDqDb47poQOU=
 github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721 h1:RlZweED6sbSArvlE924+mUcZuXKLBHA35U7LN621Bws=
 github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721/go.mod h1:Ickgr2WtCLZ2MDGd4Gr0geeCH5HybhRJbonOgQpvSxc=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=

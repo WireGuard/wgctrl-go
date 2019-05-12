@@ -3,6 +3,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -13,15 +14,27 @@ import (
 )
 
 func main() {
+	flag.Parse()
+
 	c, err := wireguardctrl.New()
 	if err != nil {
 		log.Fatalf("failed to open wireguardctrl: %v", err)
 	}
 	defer c.Close()
 
-	devices, err := c.Devices()
-	if err != nil {
-		log.Fatalf("failed to get devices: %v", err)
+	var devices []*wgtypes.Device
+	if device := flag.Arg(0); device != "" {
+		d, err := c.Device(device)
+		if err != nil {
+			log.Fatalf("failed to get device %q: %v", device, err)
+		}
+
+		devices = append(devices, d)
+	} else {
+		devices, err = c.Devices()
+		if err != nil {
+			log.Fatalf("failed to get devices: %v", err)
+		}
 	}
 
 	for _, d := range devices {
