@@ -1,14 +1,18 @@
-# wireguardctrl [![builds.sr.ht status](https://builds.sr.ht/~mdlayher/wireguardctrl.svg)](https://builds.sr.ht/~mdlayher/wireguardctrl?) [![GoDoc](https://godoc.org/github.com/mdlayher/wireguardctrl?status.svg)](https://godoc.org/github.com/mdlayher/wireguardctrl) [![Go Report Card](https://goreportcard.com/badge/github.com/mdlayher/wireguardctrl)](https://goreportcard.com/report/github.com/mdlayher/wireguardctrl)
+# wgctrl [![builds.sr.ht status](https://builds.sr.ht/~mdlayher/wireguardctrl.svg)](https://builds.sr.ht/~mdlayher/wireguardctrl?) [![GoDoc](https://godoc.org/golang.zx2c4.com/wireguard/wgctrl?status.svg)](https://godoc.org/golang.zx2c4.com/wireguard/wgctrl) [![Go Report Card](https://goreportcard.com/badge/golang.zx2c4.com/wireguard/wgctrl)](https://goreportcard.com/report/golang.zx2c4.com/wireguard/wgctrl)
 
-Package `wireguardctrl` enables control of WireGuard devices on multiple platforms.
+Package `wgctrl` enables control of WireGuard devices on multiple platforms.
 
 For more information on WireGuard, please see <https://www.wireguard.com/>.
 
 MIT Licensed.
 
+```text
+go get golang.zx2c4.com/wireguard/wgctrl
+```
+
 ## Overview
 
-`wireguardctrl` can control multiple types of WireGuard devices, including:
+`wgctrl` can control multiple types of WireGuard devices, including:
 
 - Linux kernel module devices, via generic netlink
 - userspace devices (e.g. wireguard-go), via the userspace configuration protocol
@@ -18,7 +22,7 @@ natively, this package should also be extended to support the native interface
 of those operating systems.
 
 If you are aware of any efforts on this front, please
-[file an issue](https://github.com/mdlayher/wireguardctrl/issues/new).
+[file an issue](https://github.com/WireGuard/wgctrl-go/issues/new).
 
 This package implements WireGuard configuration protocol operations, enabling
 the configuration of existing WireGuard devices. Operations such as creating

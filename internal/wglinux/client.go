@@ -3,7 +3,7 @@ package wglinux
 import (
 	"io"
 
-	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // A Client provides access to Linux WireGuard netlink information.
@@ -23,22 +23,22 @@ func New() (*Client, error) {
 	}, nil
 }
 
-// Close implements wireguardctrl.wgClient.
+// Close implements wgctrl.wgClient.
 func (c *Client) Close() error {
 	return c.c.Close()
 }
 
-// Devices implements wireguardctrl.wgClient.
+// Devices implements wgctrl.wgClient.
 func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	return c.c.Devices()
 }
 
-// Device implements wireguardctrl.wgClient.
+// Device implements wgctrl.wgClient.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	return c.c.Device(name)
 }
 
-// ConfigureDevice implements wireguardctrl.wgClient.
+// ConfigureDevice implements wgctrl.wgClient.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	return c.c.ConfigureDevice(name, cfg)
 }

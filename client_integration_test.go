@@ -1,6 +1,6 @@
 //+build integration
 
-package wireguardctrl_test
+package wgctrl_test
 
 import (
 	"fmt"
@@ -11,17 +11,17 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mdlayher/wireguardctrl"
-	"github.com/mdlayher/wireguardctrl/internal/wgtest"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"github.com/mikioh/ipaddr"
+	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wgtest"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func TestClientIntegration(t *testing.T) {
-	c, err := wireguardctrl.New()
+	c, err := wgctrl.New()
 	if err != nil {
 		if os.IsNotExist(err) {
-			t.Skip("skipping, wireguardctrl is not available on this system")
+			t.Skip("skipping, wgctrl is not available on this system")
 		}
 
 		t.Fatalf("failed to open client: %v", err)
@@ -38,7 +38,7 @@ func TestClientIntegration(t *testing.T) {
 
 	tests := []struct {
 		name string
-		fn   func(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device)
+		fn   func(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device)
 	}{
 		{
 			name: "get",
@@ -58,7 +58,7 @@ func TestClientIntegration(t *testing.T) {
 		},
 		{
 			name: "reset",
-			fn: func(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+			fn: func(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device) {
 				// Reset devices several times; this used to cause a hang in
 				// wireguard-go in late 2018.
 				for i := 0; i < 10; i++ {
@@ -85,10 +85,10 @@ func TestClientIntegration(t *testing.T) {
 }
 
 func TestClientIntegrationIsNotExist(t *testing.T) {
-	c, err := wireguardctrl.New()
+	c, err := wgctrl.New()
 	if err != nil {
 		if os.IsNotExist(err) {
-			t.Skip("skipping, wireguardctrl is not available on this system")
+			t.Skip("skipping, wgctrl is not available on this system")
 		}
 
 		t.Fatalf("failed to open client: %v", err)
@@ -100,7 +100,7 @@ func TestClientIntegrationIsNotExist(t *testing.T) {
 	}
 }
 
-func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+func testGet(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device) {
 	for _, d := range devices {
 		t.Logf("device: %s: %s", d.Name, d.PublicKey.String())
 
@@ -115,7 +115,7 @@ func testGet(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
 	}
 }
 
-func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+func testConfigure(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device) {
 	// Initial values, incremented for each device.
 	var (
 		port = 8888
@@ -194,7 +194,7 @@ func testConfigure(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Dev
 	}
 }
 
-func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+func testConfigureManyIPs(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device) {
 	for _, d := range devices {
 		// Apply 511 IPs per peer.
 		var countIPs int
@@ -255,7 +255,7 @@ func testConfigureManyIPs(t *testing.T, c *wireguardctrl.Client, devices []*wgty
 	}
 }
 
-func testConfigureManyPeers(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+func testConfigureManyPeers(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device) {
 	for _, d := range devices {
 		const (
 			nPeers  = 256
@@ -319,7 +319,7 @@ func testConfigureManyPeers(t *testing.T, c *wireguardctrl.Client, devices []*wg
 	}
 }
 
-func resetDevices(t *testing.T, c *wireguardctrl.Client, devices []*wgtypes.Device) {
+func resetDevices(t *testing.T, c *wgctrl.Client, devices []*wgtypes.Device) {
 	t.Helper()
 
 	zero := 0

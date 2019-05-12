@@ -10,9 +10,9 @@ import (
 
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
-	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // parseDevice parses a Device from a slice of generic netlink messages,
