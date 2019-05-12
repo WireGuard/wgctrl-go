@@ -38,6 +38,7 @@ func find() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer windows.Close(h)
 
 	// Check the first file's name for a match, but also keep searching for
 	// WireGuard named pipes until no more files can be iterated.
