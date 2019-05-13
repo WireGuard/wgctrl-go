@@ -191,7 +191,7 @@ type Peer struct {
 type Config struct {
 	// PrivateKey specifies a private key configuration, if not nil.
 	//
-	// A non-nil, zero-value, Key will clear the private key.
+	// A non-nil, zero-value Key will clear the private key.
 	PrivateKey *Key
 
 	// ListenPort specifies a device's listening port, if not nil.
@@ -228,7 +228,7 @@ type PeerConfig struct {
 
 	// PresharedKey specifies a peer's preshared key configuration, if not nil.
 	//
-	// A non-nil, zero-value, Key will clear the preshared key.
+	// A non-nil, zero-value Key will clear the preshared key.
 	PresharedKey *Key
 
 	// Endpoint specifies the endpoint of this peer entry, if not nil.
