@@ -74,7 +74,7 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 	l, err := net.Listen("unix", path)
 	if err != nil {
 		if runtime.GOOS == "windows" {
-			t.Skip("skipping, couldn't listen on UNIX socket on Windows: %v", err)
+			t.Skipf("skipping, couldn't listen on UNIX socket on Windows: %v", err)
 		}
 
 		t.Fatalf("failed to create socket: %v", err)
