@@ -1,4 +1,4 @@
-# wgctrl [![builds.sr.ht status](https://builds.sr.ht/~mdlayher/wireguardctrl.svg)](https://builds.sr.ht/~mdlayher/wireguardctrl?) [![GoDoc](https://godoc.org/golang.zx2c4.com/wireguard/wgctrl?status.svg)](https://godoc.org/golang.zx2c4.com/wireguard/wgctrl) [![Go Report Card](https://goreportcard.com/badge/golang.zx2c4.com/wireguard/wgctrl)](https://goreportcard.com/report/golang.zx2c4.com/wireguard/wgctrl)
+# wgctrl [![builds.sr.ht status](https://builds.sr.ht/~mdlayher/wgctrl-go.svg)](https://builds.sr.ht/~mdlayher/wgctrl-go?) [![GoDoc](https://godoc.org/golang.zx2c4.com/wireguard/wgctrl?status.svg)](https://godoc.org/golang.zx2c4.com/wireguard/wgctrl) [![Go Report Card](https://goreportcard.com/badge/golang.zx2c4.com/wireguard/wgctrl)](https://goreportcard.com/report/golang.zx2c4.com/wireguard/wgctrl)
 
 Package `wgctrl` enables control of WireGuard devices on multiple platforms.
 
