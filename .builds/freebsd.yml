@@ -2,17 +2,17 @@ image: freebsd/latest
 packages:
   - go
 sources:
-  - https://golang.zx2c4.com/wireguard/wgctrl
+  - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
 tasks:
   - setup-wireguard: |
-      ./wgctrl/.cibuild.sh
+      ./wgctrl-go/.cibuild.sh
   - build: |
       go version
       go get golang.org/x/lint/golint
       go get honnef.co/go/tools/cmd/staticcheck
-      cd wgctrl/
+      cd wgctrl-go/
       diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
       go vet ./...
       /home/build/go/bin/staticcheck ./...
