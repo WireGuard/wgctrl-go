@@ -1,28 +1,20 @@
 package wgctrl
 
 import (
-	"io"
 	"os"
 
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// An osClient is the operating system-specific implementation of Client.
-type wgClient interface {
-	io.Closer
-	Devices() ([]*wgtypes.Device, error)
-	Device(name string) (*wgtypes.Device, error)
-	ConfigureDevice(name string, cfg wgtypes.Config) error
-}
-
 // Expose an identical interface to the underlying packages.
-var _ wgClient = &Client{}
+var _ wginternal.Client = &Client{}
 
 // A Client provides access to WireGuard device information.
 type Client struct {
-	// Seamlessly use different wgClient implementations to provide an
+	// Seamlessly use different wginternal.Client implementations to provide an
 	// interface similar to wg(8).
-	cs []wgClient
+	cs []wginternal.Client
 }
 
 // New creates a new Client.

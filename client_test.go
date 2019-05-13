@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -27,7 +28,7 @@ func TestClientClose(t *testing.T) {
 	}
 
 	c := &Client{
-		cs: []wgClient{
+		cs: []wginternal.Client{
 			&testClient{CloseFunc: fn},
 			&testClient{CloseFunc: fn},
 		},
@@ -48,7 +49,7 @@ func TestClientDevices(t *testing.T) {
 	}
 
 	c := &Client{
-		cs: []wgClient{
+		cs: []wginternal.Client{
 			// Same device retrieved twice, but we don't check uniqueness.
 			&testClient{DevicesFunc: fn},
 			&testClient{DevicesFunc: fn},
@@ -123,7 +124,7 @@ func TestClientDevice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var cs []wgClient
+			var cs []wginternal.Client
 			for _, fn := range tt.fns {
 				cs = append(cs, &testClient{
 					DeviceFunc: fn,
@@ -206,7 +207,7 @@ func TestClientConfigureDevice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var cs []wgClient
+			var cs []wginternal.Client
 			for _, fn := range tt.fns {
 				cs = append(cs, &testClient{
 					ConfigureDeviceFunc: fn,

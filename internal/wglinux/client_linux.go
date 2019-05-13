@@ -15,8 +15,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var _ osClient = &client{}
-
 // A client is a Linux-specific wireguard netlink client.
 type client struct {
 	c      *genetlink.Conn
@@ -52,12 +50,12 @@ func initClient(c *genetlink.Conn) (*client, error) {
 	}, nil
 }
 
-// Close implements osClient.
+// Close implements wginternal.Client.
 func (c *client) Close() error {
 	return c.c.Close()
 }
 
-// Devices implements osClient.
+// Devices implements wginternal.Client.
 func (c *client) Devices() ([]*wgtypes.Device, error) {
 	// By default, rtnetlink is used to fetch a list of all interfaces and then
 	// filter that list to only find WireGuard interfaces.
@@ -82,7 +80,7 @@ func (c *client) Devices() ([]*wgtypes.Device, error) {
 	return ds, nil
 }
 
-// Device implements osClient.
+// Device implements wginternal.Client.
 func (c *client) Device(name string) (*wgtypes.Device, error) {
 	// Don't bother querying netlink with empty input.
 	if name == "" {
@@ -109,7 +107,7 @@ func (c *client) Device(name string) (*wgtypes.Device, error) {
 	return parseDevice(msgs)
 }
 
-// ConfigureDevice implements osClient.
+// ConfigureDevice implements wginternal.Client.
 func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	// Large configurations are split into batches for use with netlink.
 	for _, b := range buildBatches(cfg) {
