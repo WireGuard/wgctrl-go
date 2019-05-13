@@ -13,11 +13,11 @@ import (
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
-	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
-	"github.com/mdlayher/wireguardctrl/internal/wgtest"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"github.com/mikioh/ipaddr"
 	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wgtest"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func TestLinuxClientConfigureDevice(t *testing.T) {

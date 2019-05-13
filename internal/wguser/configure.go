@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // configureDevice configures a device specified by its path.

@@ -2,5 +2,5 @@
 // netlink interface.
 //
 // This package is internal-only and not meant for end users to consume.
-// Please use package wireguardctrl (an abstraction over this package) instead.
+// Please use package wgctrl (an abstraction over this package) instead.
 package wglinux

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // The WireGuard userspace configuration protocol is described here:

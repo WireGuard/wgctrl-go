@@ -1,5 +1,5 @@
 // Command wgctrl is a testing utility for interacting with WireGuard via package
-// wireguardctrl.
+// wgctrl.
 package main
 
 import (
@@ -9,16 +9,16 @@ import (
 	"net"
 	"strings"
 
-	"github.com/mdlayher/wireguardctrl"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func main() {
 	flag.Parse()
 
-	c, err := wireguardctrl.New()
+	c, err := wgctrl.New()
 	if err != nil {
-		log.Fatalf("failed to open wireguardctrl: %v", err)
+		log.Fatalf("failed to open wgctrl: %v", err)
 	}
 	defer c.Close()
 

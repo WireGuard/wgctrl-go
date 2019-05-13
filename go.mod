@@ -1,4 +1,4 @@
-module github.com/mdlayher/wireguardctrl
+module golang.zx2c4.com/wireguard/wgctrl
 
 go 1.12
 

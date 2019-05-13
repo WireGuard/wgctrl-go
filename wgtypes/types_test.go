@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/crypto/curve25519"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func TestPreparedKeys(t *testing.T) {

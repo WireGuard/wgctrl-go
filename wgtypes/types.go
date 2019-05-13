@@ -1,4 +1,4 @@
-// Package wgtypes provides shared types for the wireguardctrl family
+// Package wgtypes provides shared types for the wgctrl family
 // of packages.
 package wgtypes
 

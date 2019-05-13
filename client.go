@@ -1,13 +1,13 @@
-package wireguardctrl
+package wgctrl
 
 import (
 	"io"
 	"os"
 	"runtime"
 
-	"github.com/mdlayher/wireguardctrl/internal/wglinux"
-	"github.com/mdlayher/wireguardctrl/internal/wguser"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // An osClient is the operating system-specific implementation of Client.

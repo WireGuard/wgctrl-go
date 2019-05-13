@@ -10,9 +10,9 @@ import (
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
-	"github.com/mdlayher/wireguardctrl/internal/wglinux/internal/wgh"
-	"github.com/mdlayher/wireguardctrl/wgtypes"
 	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 var _ osClient = &client{}
@@ -154,7 +154,7 @@ func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 	oerr, ok := err.(*netlink.OpError)
 	if !ok {
 		// Expect all errors to conform to netlink.OpError.
-		return nil, fmt.Errorf("wglinux: netlink operation returned non-netlink error (please file a bug: https://github.com/mdlayher/wireguardctrl): %v", err)
+		return nil, fmt.Errorf("wglinux: netlink operation returned non-netlink error (please file a bug: https://golang.zx2c4.com/wireguard/wgctrl): %v", err)
 	}
 
 	switch oerr.Err {

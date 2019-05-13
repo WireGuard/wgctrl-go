@@ -2,17 +2,17 @@ image: freebsd/latest
 packages:
   - go
 sources:
-  - https://github.com/mdlayher/wireguardctrl
+  - https://golang.zx2c4.com/wireguard/wgctrl
 environment:
   GO111MODULE: "on"
 tasks:
   - setup-wireguard: |
-      ./wireguardctrl/.cibuild.sh
+      ./wgctrl/.cibuild.sh
   - build: |
       go version
       go get golang.org/x/lint/golint
       go get honnef.co/go/tools/cmd/staticcheck
-      cd wireguardctrl/
+      cd wgctrl/
       diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
       go vet ./...
       /home/build/go/bin/staticcheck ./...
@@ -21,4 +21,4 @@ tasks:
       go test -c -race -tags=integration .
       # Use wireguard-go for additional testing.
       sudo /home/build/go/bin/wireguard-go wguser0
-      sudo ./wireguardctrl.test -test.v -test.run TestClientIntegration
+      sudo ./wgctrl.test -test.v -test.run TestClientIntegration
