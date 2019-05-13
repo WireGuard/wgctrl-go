@@ -3,12 +3,13 @@
 package wgctrl
 
 import (
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
 )
 
-// newClients configures wgClients for Linux systems.
-func newClients() ([]wgClient, error) {
+// newClients configures wginternal.Clients for Linux systems.
+func newClients() ([]wginternal.Client, error) {
 	// Linux has an in-kernel WireGuard implementation.
 	nlc, err := wglinux.New()
 	if err != nil {
@@ -23,5 +24,5 @@ func newClients() ([]wgClient, error) {
 	}
 
 	// Netlink devices seem to appear first in wg(8).
-	return []wgClient{nlc, cfgc}, nil
+	return []wginternal.Client{nlc, cfgc}, nil
 }

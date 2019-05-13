@@ -2,15 +2,18 @@
 
 package wgctrl
 
-import "golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
+import (
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
+)
 
-// newClients configures wgClients for systems which only support userspace
-// WireGuard implementations.
-func newClients() ([]wgClient, error) {
+// newClients configures wginternal.Clients for systems which only support
+// userspace WireGuard implementations.
+func newClients() ([]wginternal.Client, error) {
 	c, err := wguser.New()
 	if err != nil {
 		return nil, err
 	}
 
-	return []wgClient{c}, nil
+	return []wginternal.Client{c}, nil
 }

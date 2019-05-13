@@ -6,8 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+var _ wginternal.Client = &Client{}
 
 // A Client provides access to userspace WireGuard device information.
 type Client struct {
@@ -26,10 +29,10 @@ func New() (*Client, error) {
 	}, nil
 }
 
-// Close implements wgctrl.wgClient.
+// Close implements wginternal.Client.
 func (c *Client) Close() error { return nil }
 
-// Devices implements wgctrl.wgClient.
+// Devices implements wginternal.Client.
 func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	devices, err := c.find()
 	if err != nil {
@@ -49,7 +52,7 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	return wgds, nil
 }
 
-// Device implements wgctrl.wgClient.
+// Device implements wginternal.Client.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	devices, err := c.find()
 	if err != nil {
@@ -67,7 +70,7 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	return nil, os.ErrNotExist
 }
 
-// ConfigureDevice implements wgctrl.wgClient.
+// ConfigureDevice implements wginternal.Client.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	devices, err := c.find()
 	if err != nil {
