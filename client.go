@@ -3,10 +3,7 @@ package wgctrl
 import (
 	"io"
 	"os"
-	"runtime"
 
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -23,8 +20,8 @@ var _ wgClient = &Client{}
 
 // A Client provides access to WireGuard device information.
 type Client struct {
-	// Seamlessly use different wgClient implementations to provide an interface
-	// similar to the wg(8).
+	// Seamlessly use different wgClient implementations to provide an
+	// interface similar to wg(8).
 	cs []wgClient
 }
 
@@ -38,31 +35,6 @@ func New() (*Client, error) {
 	return &Client{
 		cs: cs,
 	}, nil
-}
-
-// newClients sets up various wgClients based on the current operating system
-// and configuration.
-func newClients() ([]wgClient, error) {
-	var cs []wgClient
-	// TODO(mdlayher): smarter detection logic than just the OS in use.
-	if runtime.GOOS == "linux" {
-		nlc, err := wglinux.New()
-		if err != nil {
-			return nil, err
-		}
-
-		// Netlink devices seem to appear first in wg(8).
-		cs = append(cs, nlc)
-	}
-
-	cfgc, err := wguser.New()
-	if err != nil {
-		return nil, err
-	}
-
-	cs = append(cs, cfgc)
-
-	return cs, nil
 }
 
 // Close releases resources used by a Client.
