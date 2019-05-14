@@ -49,3 +49,36 @@ func TestUNIX_findUNIXSockets(t *testing.T) {
 		t.Fatalf("unexpected output files (-want +got):\n%s", diff)
 	}
 }
+
+// testFind produces a Client.find function for integration tests.
+func testFind(dir string) func() ([]string, error) {
+	return func() ([]string, error) {
+		return findUNIXSockets([]string{dir})
+	}
+}
+
+// testListen creates a userspace device listener for tests, returning the
+// directory where it can be found and a function to clean up its state.
+func testListen(t *testing.T, device string) (l net.Listener, dir string, done func()) {
+	t.Helper()
+
+	tmp, err := ioutil.TempDir(os.TempDir(), "wguser-test")
+	if err != nil {
+		t.Fatalf("failed to create temporary directory: %v", err)
+	}
+
+	path := filepath.Join(tmp, device)
+	path += ".sock"
+
+	l, err = net.Listen("unix", path)
+	if err != nil {
+		t.Fatalf("failed to create UNIX socket: %v", err)
+	}
+
+	done = func() {
+		_ = l.Close()
+		_ = os.RemoveAll(tmp)
+	}
+
+	return l, tmp, done
+}

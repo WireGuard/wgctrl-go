@@ -1,11 +1,7 @@
 package wguser
 
 import (
-	"io/ioutil"
-	"net"
 	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -14,6 +10,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+// A known device name used throughout unit and integration tests.
+const testDevice = "wgtest0"
 
 func TestClientDevice(t *testing.T) {
 	tests := []struct {
@@ -28,10 +27,10 @@ func TestClientDevice(t *testing.T) {
 		},
 		{
 			name:   "ok",
-			device: "testwg0",
+			device: testDevice,
 			exists: true,
 			d: &wgtypes.Device{
-				Name:      "testwg0",
+				Name:      testDevice,
 				Type:      wgtypes.Userspace,
 				PublicKey: wgtypes.Key{0x2f, 0xe5, 0x7d, 0xa3, 0x47, 0xcd, 0x62, 0x43, 0x15, 0x28, 0xda, 0xac, 0x5f, 0xbb, 0x29, 0x7, 0x30, 0xff, 0xf6, 0x84, 0xaf, 0xc4, 0xcf, 0xc2, 0xed, 0x90, 0x99, 0x5f, 0x58, 0xcb, 0x3b, 0x74},
 			},
@@ -62,22 +61,10 @@ func TestClientDevice(t *testing.T) {
 func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 	t.Helper()
 
-	tmp, err := ioutil.TempDir(os.TempDir(), "wireguardcfg-test")
-	if err != nil {
-		t.Fatalf("failed to create temporary directory: %v", err)
-	}
-
-	// Create a temporary UNIX socket and leave it open so it is picked up
-	// as a socket file.
-	path := filepath.Join(tmp, "testwg0.sock")
-	l, err := net.Listen("unix", path)
-	if err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skipf("skipping, couldn't listen on UNIX socket on Windows: %v", err)
-		}
-
-		t.Fatalf("failed to create socket: %v", err)
-	}
+	// Create a temporary userspace device listener backed by a UNIX socket or
+	// Windows named pipe.
+	l, dir, done := testListen(t, testDevice)
+	t.Logf("userspace device: %s", l.Addr())
 
 	// When no response is specified, send "OK".
 	if res == nil {
@@ -120,12 +107,9 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 	}()
 
 	c := &Client{
-		find: func() ([]string, error) {
-			return []string{path}, nil
-		},
-		dial: func(device string) (net.Conn, error) {
-			return net.Dial("unix", device)
-		},
+		// Point the Client at our temporary userspace device listener.
+		find: testFind(dir),
+		dial: dial,
 	}
 
 	return c, func() []byte {
@@ -133,9 +117,8 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 		defer mu.Unlock()
 
 		_ = c.Close()
-		_ = l.Close()
+		done()
 		wg.Wait()
-		_ = os.RemoveAll(tmp)
 
 		return req
 	}
