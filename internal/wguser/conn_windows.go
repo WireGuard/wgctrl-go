@@ -20,7 +20,7 @@ const (
 )
 
 // dial is the default implementation of Client.dial.
-func dial(device string) (c net.Conn, err error) {
+func dial(device string) (net.Conn, error) {
 	// Thanks to @zx2c4 for the sample code that makes this possible:
 	// https://github.com/WireGuard/wgctrl-go/issues/36#issuecomment-491912143.
 	//
@@ -33,9 +33,10 @@ func dial(device string) (c net.Conn, err error) {
 	// terminates the impersonation of a client application.
 	runtime.LockOSThread()
 	defer func() {
-		// If no other errors occurred, ensure any error here is not dropped.
-		if werr := windows.RevertToSelf(); err == nil && werr != nil {
-			err = werr
+		// Terminate the token impersonation operation. Per the Microsoft
+		// documentation, the process should shut down if RevertToSelf fails.
+		if err := windows.RevertToSelf(); err != nil {
+			panicf("wguser: failed to terminate token impersonation, panicking per Microsoft recommendation: %v", err)
 		}
 
 		runtime.UnlockOSThread()
@@ -50,7 +51,7 @@ func dial(device string) (c net.Conn, err error) {
 		},
 	}
 
-	err = windows.LookupPrivilegeValue(
+	err := windows.LookupPrivilegeValue(
 		nil,
 		windows.StringToUTF16Ptr("SeDebugPrivilege"),
 		&privileges.Privileges[0].Luid,

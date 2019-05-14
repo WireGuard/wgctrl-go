@@ -1,6 +1,7 @@
 package wguser
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -91,4 +92,8 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 // deviceName infers a device name from an absolute file path with extension.
 func deviceName(sock string) string {
 	return strings.TrimSuffix(filepath.Base(sock), filepath.Ext(sock))
+}
+
+func panicf(format string, a ...interface{}) {
+	panic(fmt.Sprintf(format, a...))
 }
