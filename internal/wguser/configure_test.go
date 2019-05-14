@@ -52,7 +52,7 @@ func TestClientConfigureDeviceError(t *testing.T) {
 		},
 		{
 			name:   "bad errno",
-			device: "testwg0",
+			device: testDevice,
 			res:    []byte("errno=1\n\n"),
 		},
 	}
@@ -143,7 +143,7 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c, done := testClient(t, nil)
 
-			if err := c.ConfigureDevice("testwg0", tt.cfg); err != nil {
+			if err := c.ConfigureDevice(testDevice, tt.cfg); err != nil {
 				t.Fatalf("failed to configure device: %v", err)
 			}
 

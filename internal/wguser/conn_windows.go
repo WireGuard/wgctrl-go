@@ -162,6 +162,12 @@ func dial(device string) (net.Conn, error) {
 
 // find is the default implementation of Client.find.
 func find() ([]string, error) {
+	return findNamedPipes(wgPrefix)
+}
+
+// findNamedPipes looks for Windows named pipes that match the specified
+// search string prefix.
+func findNamedPipes(search string) ([]string, error) {
 	var (
 		pipes []string
 		data  windows.Win32finddata
@@ -183,7 +189,7 @@ func find() ([]string, error) {
 	// WireGuard named pipes until no more files can be iterated.
 	for {
 		name := windows.UTF16ToString(data.FileName[:])
-		if strings.HasPrefix(name, wgPrefix) {
+		if strings.HasPrefix(name, search) {
 			// Concatenate strings directly as filepath.Join appears to break the
 			// named pipe prefix convention.
 			pipes = append(pipes, pipePrefix+name)
