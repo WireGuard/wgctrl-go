@@ -9,5 +9,5 @@ require (
 	github.com/microsoft/go-winio v0.4.12
 	github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
 	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
-	golang.org/x/sys v0.0.0-20190509141414-a5b02f93d862
+	golang.org/x/sys v0.0.0-20190514135907-3a4b5fb9f71f
 )

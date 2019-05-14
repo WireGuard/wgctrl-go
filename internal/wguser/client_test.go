@@ -1,11 +1,11 @@
 package wguser
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -60,6 +60,8 @@ func TestClientDevice(t *testing.T) {
 }
 
 func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
+	t.Helper()
+
 	tmp, err := ioutil.TempDir(os.TempDir(), "wireguardcfg-test")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
@@ -70,6 +72,10 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 	path := filepath.Join(tmp, "testwg0.sock")
 	l, err := net.Listen("unix", path)
 	if err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("skipping, couldn't listen on UNIX socket on Windows: %v", err)
+		}
+
 		t.Fatalf("failed to create socket: %v", err)
 	}
 
@@ -138,7 +144,3 @@ func testClient(t *testing.T, res []byte) (*Client, func() []byte) {
 func durPtr(d time.Duration) *time.Duration { return &d }
 func keyPtr(k wgtypes.Key) *wgtypes.Key     { return &k }
 func intPtr(v int) *int                     { return &v }
-
-func panicf(format string, a ...interface{}) {
-	panic(fmt.Sprintf(format, a...))
-}

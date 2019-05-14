@@ -1,0 +1,32 @@
+image: ubuntu/lts
+packages:
+  - wine-stable
+sources:
+  - https://github.com/WireGuard/wgctrl-go
+environment:
+  GO111MODULE: "on"
+  GOOS: "windows"
+tasks:
+  - install-wine: |
+      # Make wine happy by also installing 32-bit libraries.
+      sudo dpkg --add-architecture i386
+      sudo apt -y update
+      sudo apt -y install wine32
+  - install-go: |
+      wget -q https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
+      sudo tar -C /usr/local -xzf go1.12.5.linux-amd64.tar.gz
+      sudo ln -s /usr/local/go/bin/go /usr/bin/go
+  - build: |
+      go version
+      # Install tools for Linux, although we'll run them on the Windows code.
+      GOOS=linux go get golang.org/x/lint/golint
+      GOOS=linux go get honnef.co/go/tools/cmd/staticcheck
+      cd wgctrl-go/
+      diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
+      go vet ./...
+      /home/build/go/bin/staticcheck ./...
+      /home/build/go/bin/golint -set_exit_status ./...
+      # Test each necessary package under wine.
+      go test -c . && wine wgctrl.test.exe -test.v
+      go test -c ./wgtypes && wine wgtypes.test.exe -test.v
+      go test -c ./internal/wguser && wine wguser.test.exe -test.v
