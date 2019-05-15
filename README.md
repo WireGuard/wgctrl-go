@@ -16,10 +16,10 @@ go get golang.zx2c4.com/wireguard/wgctrl
 
 - Linux kernel module devices, via generic netlink
 - userspace devices (e.g. wireguard-go), via the userspace configuration protocol
+  - both UNIX-like and Windows operating systems are supported
 
-In the future, if non-Linux operating systems choose to implement WireGuard
-natively, this package should also be extended to support the native interface
-of those operating systems.
+As new operating systems add support for in-kernel WireGuard implementations,
+this package should also be extended to support those native implementations.
 
 If you are aware of any efforts on this front, please
 [file an issue](https://github.com/WireGuard/wgctrl-go/issues/new).
