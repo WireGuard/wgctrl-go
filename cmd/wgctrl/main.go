@@ -47,7 +47,7 @@ func main() {
 }
 
 func printDevice(d *wgtypes.Device) {
-	const f = `interface: %s
+	const f = `interface: %s (%s)
   public key: %s
   private key: (hidden)
   listening port: %d
@@ -57,6 +57,7 @@ func printDevice(d *wgtypes.Device) {
 	fmt.Printf(
 		f,
 		d.Name,
+		d.Type.String(),
 		d.PublicKey.String(),
 		d.ListenPort)
 }

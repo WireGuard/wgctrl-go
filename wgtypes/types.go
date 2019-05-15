@@ -17,8 +17,23 @@ type DeviceType int
 const (
 	Unknown DeviceType = iota
 	LinuxKernel
+	OpenBSDKernel
 	Userspace
 )
+
+// String returns the string representation of a DeviceType.
+func (dt DeviceType) String() string {
+	switch dt {
+	case LinuxKernel:
+		return "Linux kernel"
+	case OpenBSDKernel:
+		return "OpenBSD kernel"
+	case Userspace:
+		return "userspace"
+	default:
+		return "unknown"
+	}
+}
 
 // A Device is a WireGuard device.
 type Device struct {
