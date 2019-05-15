@@ -11,20 +11,23 @@ import (
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
 	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// A client is a Linux-specific wireguard netlink client.
-type client struct {
+var _ wginternal.Client = &Client{}
+
+// A Client provides access to Linux WireGuard netlink information.
+type Client struct {
 	c      *genetlink.Conn
 	family genetlink.Family
 
 	interfaces func() ([]string, error)
 }
 
-// newClient opens a connection to the wireguard family using generic netlink.
-func newClient() (*client, error) {
+// New creates a new Client.
+func New() (*Client, error) {
 	c, err := genetlink.Dial(nil)
 	if err != nil {
 		return nil, err
@@ -33,15 +36,15 @@ func newClient() (*client, error) {
 	return initClient(c)
 }
 
-// initClient is the internal client constructor used in some tests.
-func initClient(c *genetlink.Conn) (*client, error) {
+// initClient is the internal Client constructor used in some tests.
+func initClient(c *genetlink.Conn) (*Client, error) {
 	f, err := c.GetFamily(wgh.GenlName)
 	if err != nil {
 		_ = c.Close()
 		return nil, err
 	}
 
-	return &client{
+	return &Client{
 		c:      c,
 		family: f,
 
@@ -51,12 +54,12 @@ func initClient(c *genetlink.Conn) (*client, error) {
 }
 
 // Close implements wginternal.Client.
-func (c *client) Close() error {
+func (c *Client) Close() error {
 	return c.c.Close()
 }
 
 // Devices implements wginternal.Client.
-func (c *client) Devices() ([]*wgtypes.Device, error) {
+func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	// By default, rtnetlink is used to fetch a list of all interfaces and then
 	// filter that list to only find WireGuard interfaces.
 	//
@@ -81,7 +84,7 @@ func (c *client) Devices() ([]*wgtypes.Device, error) {
 }
 
 // Device implements wginternal.Client.
-func (c *client) Device(name string) (*wgtypes.Device, error) {
+func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	// Don't bother querying netlink with empty input.
 	if name == "" {
 		return nil, os.ErrNotExist
@@ -108,7 +111,7 @@ func (c *client) Device(name string) (*wgtypes.Device, error) {
 }
 
 // ConfigureDevice implements wginternal.Client.
-func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
+func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	// Large configurations are split into batches for use with netlink.
 	for _, b := range buildBatches(cfg) {
 		attrs, err := configAttrs(name, b)
@@ -130,7 +133,7 @@ func (c *client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 
 // execute executes a single WireGuard netlink request with the specified command,
 // header flags, and attribute arguments.
-func (c *client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte) ([]genetlink.Message, error) {
+func (c *Client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte) ([]genetlink.Message, error) {
 	msg := genetlink.Message{
 		Header: genetlink.Header{
 			Command: command,
