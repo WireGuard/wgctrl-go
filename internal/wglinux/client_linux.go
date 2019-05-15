@@ -26,22 +26,29 @@ type Client struct {
 	interfaces func() ([]string, error)
 }
 
-// New creates a new Client.
-func New() (*Client, error) {
+// New creates a new Client and returns whether or not the generic netlink
+// interface is available.
+func New() (*Client, bool, error) {
 	c, err := genetlink.Dial(nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return initClient(c)
 }
 
 // initClient is the internal Client constructor used in some tests.
-func initClient(c *genetlink.Conn) (*Client, error) {
+func initClient(c *genetlink.Conn) (*Client, bool, error) {
 	f, err := c.GetFamily(wgh.GenlName)
 	if err != nil {
 		_ = c.Close()
-		return nil, err
+
+		if netlink.IsNotExist(err) {
+			// The generic netlink interface is not available.
+			return nil, false, nil
+		}
+
+		return nil, false, err
 	}
 
 	return &Client{
@@ -50,7 +57,7 @@ func initClient(c *genetlink.Conn) (*Client, error) {
 
 		// By default, gather only WireGuard interfaces using rtnetlink.
 		interfaces: rtnlInterfaces,
-	}, nil
+	}, true, nil
 }
 
 // Close implements wginternal.Client.
