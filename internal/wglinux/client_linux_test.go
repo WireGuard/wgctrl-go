@@ -131,15 +131,34 @@ func TestLinuxClientIsPermission(t *testing.T) {
 		t.Skip("skipping, test must be run without elevated privileges")
 	}
 
-	c, err := New()
+	c, ok, err := New()
 	if err != nil {
 		t.Fatalf("failed to create Client: %v", err)
 	}
+	if !ok {
+		t.Skip("skipping, the WireGuard generic netlink API is not available")
+	}
+
 	defer c.Close()
 
 	// Check for permission denied as unprivileged user.
 	if _, err := c.Device("wgnotexist0"); !os.IsPermission(err) {
 		t.Fatalf("expected permission denied, but got: %v", err)
+	}
+}
+
+func Test_initClientNotExist(t *testing.T) {
+	conn := genltest.Dial(func(_ genetlink.Message, _ netlink.Message) ([]genetlink.Message, error) {
+		// Simulate genetlink family not found.
+		return nil, genltest.Error(int(unix.ENOENT))
+	})
+
+	_, ok, err := initClient(conn)
+	if err != nil {
+		t.Fatalf("failed to open Client: %v", err)
+	}
+	if ok {
+		t.Fatal("the generic netlink API should not be available from genltest")
 	}
 }
 
@@ -266,9 +285,12 @@ func testClient(t *testing.T, fn genltest.Func) *Client {
 
 	conn := genltest.Dial(genltest.ServeFamily(family, fn))
 
-	c, err := initClient(conn)
+	c, ok, err := initClient(conn)
 	if err != nil {
 		t.Fatalf("failed to open Client: %v", err)
+	}
+	if !ok {
+		t.Fatal("the generic netlink API was not available from genltest")
 	}
 
 	c.interfaces = func() ([]string, error) {
