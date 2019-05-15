@@ -62,24 +62,24 @@ func TestLinuxClientDevicesEmpty(t *testing.T) {
 }
 
 func TestLinuxClientIsNotExist(t *testing.T) {
-	device := func(c *client) error {
+	device := func(c *Client) error {
 		_, err := c.Device("wg0")
 		return err
 	}
 
-	configure := func(c *client) error {
+	configure := func(c *Client) error {
 		return c.ConfigureDevice("wg0", wgtypes.Config{})
 	}
 
 	tests := []struct {
 		name  string
-		fn    func(c *client) error
+		fn    func(c *Client) error
 		msgs  []genetlink.Message
 		errno unix.Errno
 	}{
 		{
 			name: "name: empty",
-			fn: func(c *client) error {
+			fn: func(c *Client) error {
 				_, err := c.Device("")
 				return err
 			},
@@ -133,7 +133,7 @@ func TestLinuxClientIsPermission(t *testing.T) {
 
 	c, err := New()
 	if err != nil {
-		t.Fatalf("failed to create client: %v", err)
+		t.Fatalf("failed to create Client: %v", err)
 	}
 	defer c.Close()
 
@@ -257,7 +257,7 @@ func Test_parseRTNLInterfaces(t *testing.T) {
 
 const familyID = 20
 
-func testClient(t *testing.T, fn genltest.Func) *client {
+func testClient(t *testing.T, fn genltest.Func) *Client {
 	family := genetlink.Family{
 		ID:      familyID,
 		Version: wgh.GenlVersion,
@@ -268,7 +268,7 @@ func testClient(t *testing.T, fn genltest.Func) *client {
 
 	c, err := initClient(conn)
 	if err != nil {
-		t.Fatalf("failed to open client: %v", err)
+		t.Fatalf("failed to open Client: %v", err)
 	}
 
 	c.interfaces = func() ([]string, error) {
