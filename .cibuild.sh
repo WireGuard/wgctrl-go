@@ -7,6 +7,13 @@ set -x
 BINDIR=/home/build/go/bin
 
 KERNEL=$(uname -s)
+
+# Use doas in place of sudo for OpenBSD.
+SUDO="sudo"
+if [ "${KERNEL}" == "OpenBSD" ]; then
+    SUDO="doas"
+fi
+
 if [ "${KERNEL}" == "Linux" ]; then
     # Set up the WireGuard kernel module on Linux.
     sudo apt-get -y install software-properties-common
@@ -32,6 +39,6 @@ else
 fi
 
 mkdir -p ${BINDIR}
-sudo mv ./wireguard-go ${BINDIR}/wireguard-go
+${SUDO} mv ./wireguard-go ${BINDIR}/wireguard-go
 cd ..
-sudo rm -rf ./wireguard-go
+${SUDO} rm -rf ./wireguard-go

@@ -1,0 +1,26 @@
+image: openbsd/6.5
+packages:
+  - bash
+  - go
+sources:
+  - https://github.com/WireGuard/wgctrl-go
+environment:
+  GO111MODULE: "on"
+tasks:
+  - setup-wireguard: |
+      ./wgctrl-go/.cibuild.sh
+  - build: |
+      go version
+      go get golang.org/x/lint/golint
+      go get honnef.co/go/tools/cmd/staticcheck
+      cd wgctrl-go/
+      diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
+      go vet ./...
+      /home/build/go/bin/staticcheck ./...
+      /home/build/go/bin/golint -set_exit_status ./...
+      # The race detector is not supported on OpenBSD.
+      go test -v ./...
+      go test -c -tags=integration .
+      # Use wireguard-go for additional testing.
+      doas /home/build/go/bin/wireguard-go tun0
+      doas ./wgctrl.test -test.v -test.run TestClientIntegration
