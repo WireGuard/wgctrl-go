@@ -3,17 +3,35 @@
 package wgctrl
 
 import (
+	"os"
+
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgopenbsd"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
 )
 
+// Since the OpenBSD implementation and the code to interact with it are both
+// very experimental, make the user explicitly opt-in to use it.
+var useKernel = func() bool {
+	return os.Getenv("WGCTRL_OPENBSD_KERNEL") == "1"
+}()
+
 // newClients configures wginternal.Clients for OpenBSD systems.
 func newClients() ([]wginternal.Client, error) {
-	// OpenBSD has an in-kernel WireGuard implementation.
-	kc, err := wgopenbsd.New()
-	if err != nil {
-		return nil, err
+	var clients []wginternal.Client
+
+	// Make the user opt in explicitly for kernel implementation support.
+	if useKernel {
+		// OpenBSD has an experimental in-kernel WireGuard implementation:
+		// https://git.noconroy.net/wireguard-bsd.git. Determine if it is
+		// available and make use of it if so.
+		kc, ok, err := wgopenbsd.New()
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			clients = append(clients, kc)
+		}
 	}
 
 	uc, err := wguser.New()
@@ -21,5 +39,6 @@ func newClients() ([]wginternal.Client, error) {
 		return nil, err
 	}
 
-	return []wginternal.Client{kc, uc}, nil
+	clients = append(clients, uc)
+	return clients, nil
 }

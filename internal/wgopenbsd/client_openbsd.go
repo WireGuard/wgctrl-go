@@ -17,17 +17,20 @@ type Client struct {
 	fd int
 }
 
-// New creates a new Client.
-func New() (*Client, error) {
+// New creates a new Client and returns whether or not the ioctl interface
+// is available.
+func New() (*Client, bool, error) {
 	// The OpenBSD ioctl interface operates on a generic AF_INET socket.
 	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+
+	// TODO(mdlayher): call Devices or similar here to probe for availability.
 
 	return &Client{
 		fd: fd,
-	}, nil
+	}, true, nil
 }
 
 // Close implements wginternal.Client.
