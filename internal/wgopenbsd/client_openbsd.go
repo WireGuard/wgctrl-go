@@ -14,6 +14,12 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+/*
+#cgo CFLAGS: -g -Wall
+#include <stdlib.h>
+*/
+import "C"
+
 const (
 	sizeofIfgreq = uint32(unsafe.Sizeof(wgh.Ifgreq{}))
 )
@@ -67,15 +73,22 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 		return nil, err
 	}
 
-	// ifg.Len is in bytes; allocate enough space for the correct number
-	// of devices and then store a pointer to the address where the data should
-	// be written in the ifg.Ifgru union.
+	// ifg.Len is size in bytes; allocate enough C memory for the correct number
+	// of wgh.Ifreq and then store a pointer to the C memory address where the
+	// data should be written in the ifg.Ifgru union.
 	//
-	// TODO(mdlayher): is this actually safe? Can we guarantee that the memory
-	// address we pass to the kernel remains valid for when we need to read
-	// from the slice below?
-	ifgrs := make([]wgh.Ifgreq, ifg.Len/sizeofIfgreq)
-	*(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0])) = uintptr(unsafe.Pointer(&ifgrs[0]))
+	// C memory is allocated to store "[l]wgh.Ifreq" data in order to ensure
+	// that the Go compiler does not move a slice and thus invalidate the memory
+	// address passed to the following ioctl call.
+	//
+	// See the conversation beginning here in #darkarts on Gophers Slack:
+	// https://gophers.slack.com/archives/C1C1YSQBT/p1557956939402700.
+	l := ifg.Len / sizeofIfgreq
+
+	cbuf := C.malloc(C.sizeof_char * C.size_t(ifg.Len))
+	defer C.free(cbuf)
+
+	*(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0])) = uintptr(cbuf)
 
 	// Now actually fetch the device names.
 	if err := ioctl(c.fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(&ifg)); err != nil {
@@ -85,7 +98,11 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	// Keep this alive until we're done doing the ioctl dance.
 	runtime.KeepAlive(&ifg)
 
-	devices := make([]*wgtypes.Device, 0, len(ifgrs))
+	// Perform the actual conversion to []wgh.Ifreq. See:
+	// https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices.
+	ifgrs := (*[1 << 30]wgh.Ifgreq)(cbuf)[:l:l]
+
+	devices := make([]*wgtypes.Device, 0, l)
 	for _, ifgr := range ifgrs {
 		devices = append(devices, &wgtypes.Device{
 			// Remove any trailing NULL bytes from the interface names.
