@@ -40,20 +40,14 @@ func New() (*Client, bool, error) {
 		return nil, false, err
 	}
 
-	// Check to see if the ioctl interface is available.
-	c := &Client{fd: fd}
-	if _, err := c.Devices(); err != nil {
-		_ = c.Close()
+	// TODO(mdlayher): find a call to invoke here to probe for availability.
+	// c.Devices won't work because it returns a "not found" error when the
+	// kernel WireGuard implementation is available but the interface group
+	// has no members.
 
-		if os.IsNotExist(err) {
-			// The ioctl interface is not available.
-			return nil, false, nil
-		}
-
-		return nil, false, err
-	}
-
-	return c, true, nil
+	return &Client{
+		fd: fd,
+	}, true, nil
 }
 
 // Close implements wginternal.Client.
