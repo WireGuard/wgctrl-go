@@ -4,6 +4,7 @@ package wgopenbsd
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"runtime"
 	"unsafe"
@@ -98,11 +99,13 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 
 	devices := make([]*wgtypes.Device, 0, l)
 	for _, ifgr := range ifgrs {
-		devices = append(devices, &wgtypes.Device{
-			// Remove any trailing NULL bytes from the interface names.
-			Name: string(bytes.TrimRight(ifgr.Ifgrqu[:], "\x00")),
-			Type: wgtypes.OpenBSDKernel,
-		})
+		// Remove any trailing NULL bytes from the interface names.
+		d, err := c.Device(string(bytes.TrimRight(ifgr.Ifgrqu[:], "\x00")))
+		if err != nil {
+			return nil, err
+		}
+
+		devices = append(devices, d)
 	}
 
 	return devices, nil
@@ -110,9 +113,20 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 
 // Device implements wginternal.Client.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
-	// Unimplemented: "not exist" error means this code can be built but is
-	// effectively a no-op.
-	return nil, os.ErrNotExist
+	d, pkeys, err := c.getServ(name)
+	if err != nil {
+		return nil, err
+	}
+
+	d.Peers = make([]wgtypes.Peer, 0, len(pkeys))
+	for _, pk := range pkeys {
+		// TODO(mdlayher): parsing for remaining peer fields.
+		d.Peers = append(d.Peers, wgtypes.Peer{
+			PublicKey: pk,
+		})
+	}
+
+	return d, nil
 }
 
 // ConfigureDevice implements wginternal.Client.
@@ -120,6 +134,88 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	// Unimplemented: "not exist" error means this code can be built but is
 	// effectively a no-op.
 	return os.ErrNotExist
+}
+
+// getServ fetches a device and the public keys of its peers using an ioctl.
+func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
+	nb, err := deviceName(name)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Fetch information for the specified device, and indicate that we have
+	// pre-allocated room for peer public keys. 8 is the initial array size
+	// value used by ncon's wg fork.
+	wgs := wgh.WGGetServ{
+		Name:      nb,
+		Num_peers: 8,
+	}
+
+	var (
+		// The amount of space we should allocate for peer public keys, and a
+		// pointer to the C memory itself. Any return site _must_ free cbuf;
+		// we aren't using defer because of the loop and the use of reallocarray
+		// means the location cbuf points to can change.
+		n    uint64
+		cbuf unsafe.Pointer
+	)
+
+	for {
+		// Updated on each loop iteration to provide enough space in case the
+		// kernel tells us we need to provide more space.
+		n = wgs.Num_peers
+
+		// Allocate enough space for n*30 (wgtypes.KeyLen) peer public keys and
+		// point the kernel to our C memory.
+		cbuf = C.reallocarray(cbuf, C.size_t(n), wgtypes.KeyLen)
+		wgs.Peers = (*[wgtypes.KeyLen]uint8)(cbuf)
+
+		// Query for a device by its name.
+		if err := ioctl(c.fd, wgh.SIOCGWGSERV, unsafe.Pointer(&wgs)); err != nil {
+			C.free(cbuf)
+			return nil, nil, err
+		}
+
+		// Did the kernel tell us there are more peers than can fit in our
+		// current memory? If not, we're done.
+		if wgs.Num_peers <= n {
+			// Update n one final time so we know how much memory we need to
+			// copy from C to Go.
+			n = wgs.Num_peers
+			break
+		}
+	}
+
+	// Convert C memory (*[32]byte) directly to []wgtypes.Key (32 bytes each)
+	// and copy into a new Go slice so no C data is retained beyond this
+	// function. See also:
+	// https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices.
+	keys := make([]wgtypes.Key, n)
+	copy(keys, (*[1 << 30]wgtypes.Key)(cbuf)[:n:n])
+	C.free(cbuf)
+
+	return &wgtypes.Device{
+		Name:       name,
+		Type:       wgtypes.OpenBSDKernel,
+		PublicKey:  wgs.Pubkey,
+		ListenPort: int(wgs.Port),
+	}, keys, nil
+}
+
+// deviceName converts an interface name string to the format required to pass
+// with wgh.WGGetServ.
+func deviceName(name string) ([16]int8, error) {
+	var out [unix.IFNAMSIZ]int8
+	buf := []byte(name)
+	if len(buf) > unix.IFNAMSIZ {
+		return out, fmt.Errorf("wgopenbsd: interface name %q too long", name)
+	}
+
+	for i, b := range buf {
+		out[i] = int8(b)
+	}
+
+	return out, nil
 }
 
 // ioctl is a raw wrapper for the ioctl system call.
