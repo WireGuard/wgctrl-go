@@ -151,9 +151,14 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 
 // ConfigureDevice implements wginternal.Client.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
-	// Unimplemented: "not exist" error means this code can be built but is
-	// effectively a no-op.
-	return os.ErrNotExist
+	// Currently read-only: we must determine if a device belongs to this driver,
+	// and if it does, return a sentinel so integration tests that configure a
+	// device can be skipped.
+	if _, err := c.Device(name); err != nil {
+		return err
+	}
+
+	return wginternal.ErrReadOnly
 }
 
 // getServ fetches a device and the public keys of its peers using an ioctl.
