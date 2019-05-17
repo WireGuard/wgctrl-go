@@ -27,7 +27,7 @@ func TestClientDevices(t *testing.T) {
 	)
 
 	var calls int
-	ifgrFunc := func(ifg *wgh.Ifgroupreq, cbuf unsafe.Pointer) error {
+	ifgrFunc := func(ifg *wgh.Ifgroupreq, ptr unsafe.Pointer) error {
 		// Verify the caller is asking for WireGuard interface group members.
 		if diff := cmp.Diff(ifGroupWG, ifg.Name); diff != "" {
 			t.Fatalf("unexpected interface group (-want +got):\n%s", diff)
@@ -36,16 +36,16 @@ func TestClientDevices(t *testing.T) {
 		switch calls {
 		case 0:
 			// Inform the caller that we have n device names available.
-			ifg.Len = n * sizeofIfgreq
+			ifg.Len = n * wgh.SizeofIfgreq
 		case 1:
 			// Verify that the pointer stored in the union matches the pointer
-			// to C memory received by this function.
-			if diff := cmp.Diff(uintptr(cbuf), *(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0]))); diff != "" {
-				t.Fatalf("unexpected pointer to C memory (-want +got):\n%s", diff)
+			// to memory received by this function.
+			if diff := cmp.Diff(ptr, unsafe.Pointer(ifg.Groups)); diff != "" {
+				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
 			}
 
-			// Populate the C memory with device names.
-			*(*[n]wgh.Ifgreq)(cbuf) = [n]wgh.Ifgreq{
+			// Populate the memory with device names.
+			*(*[n]wgh.Ifgreq)(ptr) = [n]wgh.Ifgreq{
 				{Ifgrqu: devName(devA)},
 				{Ifgrqu: devName(devB)},
 			}
@@ -114,15 +114,15 @@ func TestClientDeviceBasic(t *testing.T) {
 		ioctlIfgroupreq: func(_ *wgh.Ifgroupreq, _ unsafe.Pointer) error {
 			panic("no calls to Client.Devices, should not be called")
 		},
-		ioctlWGGetServ: func(wgs *wgh.WGGetServ, cbuf unsafe.Pointer) error {
+		ioctlWGGetServ: func(wgs *wgh.WGGetServ, ptr unsafe.Pointer) error {
 			// Verify that the pointer stored in wgs matches the pointer
-			// to C memory received by this function.
-			if diff := cmp.Diff(cbuf, unsafe.Pointer(&wgs.Peers[0])); diff != "" {
-				t.Fatalf("unexpected pointer to C memory (-want +got):\n%s", diff)
+			// to memory received by this function.
+			if diff := cmp.Diff(ptr, unsafe.Pointer(&wgs.Peers[0])); diff != "" {
+				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
 			}
 
-			// Populate the C memory with peer public key.
-			*(*[nPeers]wgtypes.Key)(cbuf) = [nPeers]wgtypes.Key{peer}
+			// Populate the memory with peer public key.
+			*(*[nPeers]wgtypes.Key)(ptr) = [nPeers]wgtypes.Key{peer}
 
 			// Fill in some device information and indicate number of peers.
 			wgs.Pubkey = pub
@@ -130,7 +130,7 @@ func TestClientDeviceBasic(t *testing.T) {
 			wgs.Num_peers = nPeers
 			return nil
 		},
-		ioctlWGGetPeer: func(wgp *wgh.WGGetPeer, cbuf unsafe.Pointer) error {
+		ioctlWGGetPeer: func(wgp *wgh.WGGetPeer, ptr unsafe.Pointer) error {
 			// Verify the device name and peer public key.
 			if diff := cmp.Diff(devName(device), wgp.Name); diff != "" {
 				t.Fatalf("unexpected device name bytes (-want +got):\n%s", diff)
@@ -140,14 +140,14 @@ func TestClientDeviceBasic(t *testing.T) {
 			}
 
 			// Verify that the pointer stored in wgp matches the pointer
-			// to C memory received by this function.
-			if diff := cmp.Diff(cbuf, unsafe.Pointer(&wgp.Aip[0])); diff != "" {
-				t.Fatalf("unexpected pointer to C memory (-want +got):\n%s", diff)
+			// to memory received by this function.
+			if diff := cmp.Diff(ptr, unsafe.Pointer(&wgp.Aip[0])); diff != "" {
+				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
 			}
 
-			// Populate the C memory with allowed IPs.
+			// Populate the memory with allowed IPs.
 			wgp.Num_aip = nAllowedIPs
-			*(*[nAllowedIPs]wgh.WGIP)(cbuf) = [nAllowedIPs]wgh.WGIP{
+			*(*[nAllowedIPs]wgh.WGIP)(ptr) = [nAllowedIPs]wgh.WGIP{
 				// unix.RawSockaddrInet* structures are repurposed for allowed
 				// IP subnets. Port is treated as the CIDR mask.
 				*(*wgh.WGIP)(unsafe.Pointer(&unix.RawSockaddrInet4{

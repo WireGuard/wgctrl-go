@@ -18,17 +18,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-/*
-#cgo CFLAGS: -g -Wall
-#include <stdlib.h>
-*/
-import "C"
-
-const (
-	sizeofIfgreq = uint32(unsafe.Sizeof(wgh.Ifgreq{}))
-	sizeofWGIP   = unsafe.Sizeof(wgh.WGIP{})
-)
-
 var (
 	// ifGroupWG is the WireGuard interface group name passed to the kernel.
 	ifGroupWG = [16]byte{0: 'w', 1: 'g'}
@@ -41,9 +30,9 @@ type Client struct {
 	// Hooks which use system calls by default, but can also be swapped out
 	// during tests.
 	close           func() error
-	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq, cbuf unsafe.Pointer) error
-	ioctlWGGetServ  func(wgs *wgh.WGGetServ, cbuf unsafe.Pointer) error
-	ioctlWGGetPeer  func(wgp *wgh.WGGetPeer, cbuf unsafe.Pointer) error
+	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq, ptr unsafe.Pointer) error
+	ioctlWGGetServ  func(wgs *wgh.WGGetServ, ptr unsafe.Pointer) error
+	ioctlWGGetPeer  func(wgp *wgh.WGGetPeer, ptr unsafe.Pointer) error
 }
 
 // New creates a new Client and returns whether or not the ioctl interface
@@ -86,36 +75,27 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 		return nil, err
 	}
 
-	// ifg.Len is size in bytes; allocate enough C memory for the correct number
-	// of wgh.Ifreq and then store a pointer to the C memory address where the
-	// data should be written in the ifg.Ifgru union.
+	// ifg.Len is size in bytes; allocate enough memory for the correct number
+	// of wgh.Ifgreq and then store a pointer to the memory where the data
+	// should be written (ifgrs) in ifg.Groups.
 	//
-	// C memory is allocated to store "[l]wgh.Ifreq" data in order to ensure
-	// that the Go compiler does not move a slice and thus invalidate the memory
-	// address passed to the following ioctl call.
-	//
-	// See the conversation beginning here in #darkarts on Gophers Slack:
-	// https://gophers.slack.com/archives/C1C1YSQBT/p1557956939402700.
-	l := ifg.Len / sizeofIfgreq
-
-	cbuf := C.malloc(C.size_t(ifg.Len))
-	defer C.free(cbuf)
-
-	*(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0])) = uintptr(cbuf)
+	// From a thread in golang-nuts, this pattern is valid:
+	// "It would be OK to pass a pointer to a struct to ioctl if the struct
+	// contains a pointer to other Go memory, but the struct field must have
+	// pointer type."
+	// See: https://groups.google.com/forum/#!topic/golang-nuts/FfasFTZvU_o.
+	ifgrs := make([]wgh.Ifgreq, ifg.Len/wgh.SizeofIfgreq)
+	ifg.Groups = &ifgrs[0]
 
 	// Now actually fetch the device names.
-	if err := c.ioctlIfgroupreq(&ifg, cbuf); err != nil {
+	if err := c.ioctlIfgroupreq(&ifg, unsafe.Pointer(&ifgrs[0])); err != nil {
 		return nil, err
 	}
 
 	// Keep this alive until we're done doing the ioctl dance.
 	runtime.KeepAlive(&ifg)
 
-	// Perform the actual conversion to []wgh.Ifreq. See:
-	// https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices.
-	ifgrs := (*[1 << 30]wgh.Ifgreq)(cbuf)[:l:l]
-
-	devices := make([]*wgtypes.Device, 0, l)
+	devices := make([]*wgtypes.Device, 0, len(ifgrs))
 	for _, ifgr := range ifgrs {
 		// Remove any trailing NULL bytes from the interface names.
 		d, err := c.Device(string(bytes.TrimRight(ifgr.Ifgrqu[:], "\x00")))
@@ -177,12 +157,10 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 	}
 
 	var (
-		// The amount of space we should allocate for peer public keys, and a
-		// pointer to the C memory itself. Any return site _must_ free cbuf;
-		// we aren't using defer because of the loop and the use of reallocarray
-		// means the location cbuf points to can change.
-		n    uint64
-		cbuf unsafe.Pointer
+		// The number of peer public keys we should allocate space for, and
+		// the slice where keys are allocated.
+		n     uint64
+		bkeys [][wgtypes.KeyLen]byte // []wgtypes.Key equivalent
 	)
 
 	for {
@@ -190,14 +168,13 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 		// kernel tells us we need to provide more space.
 		n = wgs.Num_peers
 
-		// Allocate enough space for n*30 (wgtypes.KeyLen) peer public key bytes
-		// and point the kernel to our C memory.
-		cbuf = C.reallocarray(cbuf, C.size_t(n), wgtypes.KeyLen)
-		wgs.Peers = (*[wgtypes.KeyLen]byte)(cbuf)
+		// See the comment in Devices about passing Go pointers within a
+		// structure to ioctl.
+		bkeys = make([][wgtypes.KeyLen]byte, n)
+		wgs.Peers = &bkeys[0]
 
 		// Query for a device by its name.
-		if err := c.ioctlWGGetServ(&wgs, cbuf); err != nil {
-			C.free(cbuf)
+		if err := c.ioctlWGGetServ(&wgs, unsafe.Pointer(&bkeys[0])); err != nil {
 
 			// ioctl functions always return a wrapped unix.Errno value.
 			// Conform to the wgctrl contract by converting "no such device" and
@@ -213,20 +190,15 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 		// Did the kernel tell us there are more peers than can fit in our
 		// current memory? If not, we're done.
 		if wgs.Num_peers <= n {
-			// Update n one final time so we know how much memory we need to
-			// copy from C to Go.
-			n = wgs.Num_peers
+			// Re-slice to the exact size needed.
+			bkeys = bkeys[:wgs.Num_peers:wgs.Num_peers]
 			break
 		}
 	}
 
-	// Convert C memory (*[32]byte) directly to []wgtypes.Key (32 bytes each)
-	// and copy into a new Go slice so no C data is retained beyond this
-	// function. See also:
-	// https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices.
-	keys := make([]wgtypes.Key, n)
-	copy(keys, (*[1 << 30]wgtypes.Key)(cbuf)[:n:n])
-	C.free(cbuf)
+	// wgtypes.Key has an identical memory layout with [wgtypes.KeyLen]byte, so
+	// cast the slice directly.
+	keys := *(*[]wgtypes.Key)(unsafe.Pointer(&bkeys))
 
 	return &wgtypes.Device{
 		Name:       name,
@@ -255,48 +227,38 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 	}
 
 	var (
-		// Any return site _must_ free cbuf; we aren't using defer immediately
-		// because of the loop and the use of reallocarray means the location
-		// cbuf points to can change.
 		n    uint64
-		cbuf unsafe.Pointer
+		aips [][28]byte // []wgh.WGIP equivalent
 	)
 
 	for {
 		n = wgp.Num_aip
 
-		// Allocate enough space for n WGIP structures in an array.
-		cbuf = C.reallocarray(cbuf, C.size_t(n), C.size_t(sizeofWGIP))
-		wgp.Aip = (*[sizeofWGIP]byte)(cbuf)
+		// See the comment in Devices about passing Go pointers within a
+		// structure to ioctl.
+		aips = make([][28]byte, n)
+		wgp.Aip = &aips[0]
 
 		// Query for a peer by its associated device and public key.
-		if err := c.ioctlWGGetPeer(&wgp, cbuf); err != nil {
-			C.free(cbuf)
+		if err := c.ioctlWGGetPeer(&wgp, unsafe.Pointer(&aips[0])); err != nil {
 			return nil, err
 		}
 
 		// Did the kernel tell us there are more allowed IPs than can fit in our
 		// current memory? If not, we're done.
 		if wgp.Num_aip <= n {
-			// Update n one final time so we know how much memory we need to
-			// copy from C to Go.
-			n = wgp.Num_aip
+			// Re-slice to the exact size needed.
+			aips = aips[:wgp.Num_aip:wgp.Num_aip]
 			break
 		}
 	}
-
-	// No more loop and no more chance for cbuf address to change, so defer
-	// freeing for any further return sites.
-	defer C.free(cbuf)
 
 	endpoint, err := parseEndpoint(wgp.Ip)
 	if err != nil {
 		return nil, err
 	}
 
-	// Copy C memory into a Go slice, see also:
-	// https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices.
-	allowedIPs, err := parseAllowedIPs((*[1 << 30]wgh.WGIP)(cbuf)[:n:n])
+	allowedIPs, err := parseAllowedIPs(aips)
 	if err != nil {
 		return nil, err
 	}
@@ -363,8 +325,8 @@ func bePort(port uint16) int {
 	return int(binary.BigEndian.Uint16(b[:]))
 }
 
-// parseAllowedIPs parses allowed IPs from a []wgh.WGIP slice.
-func parseAllowedIPs(aips []wgh.WGIP) ([]net.IPNet, error) {
+// parseAllowedIPs parses allowed IPs from a slice representing a sockaddr union.
+func parseAllowedIPs(aips [][28]byte) ([]net.IPNet, error) {
 	ipns := make([]net.IPNet, 0, len(aips))
 	for _, aip := range aips {
 		var ipn net.IPNet
@@ -397,7 +359,7 @@ func parseAllowedIPs(aips []wgh.WGIP) ([]net.IPNet, error) {
 // ioctlIfgroupreq returns a function which performs the appropriate ioctl on
 // fd to retrieve members of an interface group.
 func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq, unsafe.Pointer) error {
-	// ioctl doesn't need a direct pointer to the C memory.
+	// ioctl doesn't need a direct pointer to the memory.
 	return func(ifg *wgh.Ifgroupreq, _ unsafe.Pointer) error {
 		return ioctl(fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(ifg))
 	}
@@ -406,7 +368,7 @@ func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq, unsafe.Pointer) error {
 // ioctlWGGetServ returns a function which performs the appropriate ioctl on
 // fd to fetch information about a WireGuard device.
 func ioctlWGGetServ(fd int) func(*wgh.WGGetServ, unsafe.Pointer) error {
-	// ioctl doesn't need a direct pointer to the C memory.
+	// ioctl doesn't need a direct pointer to the memory.
 	return func(wgs *wgh.WGGetServ, _ unsafe.Pointer) error {
 		return ioctl(fd, wgh.SIOCGWGSERV, unsafe.Pointer(wgs))
 	}
@@ -415,7 +377,7 @@ func ioctlWGGetServ(fd int) func(*wgh.WGGetServ, unsafe.Pointer) error {
 // ioctlWGGetPeer returns a function which performs the appropriate ioctl on
 // fd to fetch information about a peer associated with a WireGuard device.
 func ioctlWGGetPeer(fd int) func(*wgh.WGGetPeer, unsafe.Pointer) error {
-	// ioctl doesn't need a direct pointer to the C memory.
+	// ioctl doesn't need a direct pointer to the memory.
 	return func(wgp *wgh.WGGetPeer, _ unsafe.Pointer) error {
 		return ioctl(fd, wgh.SIOCGWGPEER, unsafe.Pointer(wgp))
 	}
