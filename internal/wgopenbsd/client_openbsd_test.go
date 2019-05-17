@@ -39,9 +39,7 @@ func TestClientDevices(t *testing.T) {
 		case 1:
 			// Verify that the pointer stored in the union matches the pointer
 			// to C memory received by this function.
-			ptr := *(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0]))
-
-			if diff := cmp.Diff(uintptr(cbuf), ptr); diff != "" {
+			if diff := cmp.Diff(uintptr(cbuf), *(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0]))); diff != "" {
 				t.Fatalf("unexpected pointer to C memory (-want +got):\n%s", diff)
 			}
 
