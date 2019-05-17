@@ -28,11 +28,21 @@ const (
 	sizeofWGIP   = unsafe.Sizeof(wgh.WGIP{})
 )
 
+var (
+	// ifGroupWG is the WireGuard interface group name passed to the kernel.
+	ifGroupWG = [16]int8{0: 'w', 1: 'g'}
+)
+
 var _ wginternal.Client = &Client{}
 
 // A Client provides access to OpenBSD WireGuard ioctl information.
 type Client struct {
-	fd int
+	// Hooks which use system calls by default, but can also be swapped out
+	// during tests.
+	close           func() error
+	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq, cbuf unsafe.Pointer) error
+	ioctlWGGetServ  func(wgs *wgh.WGGetServ, cbuf unsafe.Pointer) error
+	ioctlWGGetPeer  func(wgp *wgh.WGGetPeer, cbuf unsafe.Pointer) error
 }
 
 // New creates a new Client and returns whether or not the ioctl interface
@@ -49,25 +59,29 @@ func New() (*Client, bool, error) {
 	// kernel WireGuard implementation is available but the interface group
 	// has no members.
 
+	// By default, use system call implementations for all hook functions.
 	return &Client{
-		fd: fd,
+		close:           func() error { return unix.Close(fd) },
+		ioctlIfgroupreq: ioctlIfgroupreq(fd),
+		ioctlWGGetServ:  ioctlWGGetServ(fd),
+		ioctlWGGetPeer:  ioctlWGGetPeer(fd),
 	}, true, nil
 }
 
 // Close implements wginternal.Client.
 func (c *Client) Close() error {
-	return unix.Close(c.fd)
+	return c.close()
 }
 
 // Devices implements wginternal.Client.
 func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	ifg := wgh.Ifgroupreq{
 		// Query for devices in the "wg" group.
-		Name: [16]int8{0: 'w', 1: 'g'},
+		Name: ifGroupWG,
 	}
 
 	// Determine how many device names we must allocate memory for.
-	if err := ioctl(c.fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(&ifg)); err != nil {
+	if err := c.ioctlIfgroupreq(&ifg, nil); err != nil {
 		return nil, err
 	}
 
@@ -83,13 +97,13 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	// https://gophers.slack.com/archives/C1C1YSQBT/p1557956939402700.
 	l := ifg.Len / sizeofIfgreq
 
-	cbuf := C.malloc(C.sizeof_char * C.size_t(ifg.Len))
+	cbuf := C.malloc(C.size_t(ifg.Len))
 	defer C.free(cbuf)
 
 	*(*uintptr)(unsafe.Pointer(&ifg.Ifgru[0])) = uintptr(cbuf)
 
 	// Now actually fetch the device names.
-	if err := ioctl(c.fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(&ifg)); err != nil {
+	if err := c.ioctlIfgroupreq(&ifg, cbuf); err != nil {
 		return nil, err
 	}
 
@@ -176,7 +190,7 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 		wgs.Peers = (*[wgtypes.KeyLen]uint8)(cbuf)
 
 		// Query for a device by its name.
-		if err := ioctl(c.fd, wgh.SIOCGWGSERV, unsafe.Pointer(&wgs)); err != nil {
+		if err := c.ioctlWGGetServ(&wgs, cbuf); err != nil {
 			C.free(cbuf)
 			return nil, nil, err
 		}
@@ -241,7 +255,7 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 		wgp.Aip = (*[sizeofWGIP]byte)(cbuf)
 
 		// Query for a peer by its associated device and public key.
-		if err := ioctl(c.fd, wgh.SIOCGWGPEER, unsafe.Pointer(&wgp)); err != nil {
+		if err := c.ioctlWGGetPeer(&wgp, cbuf); err != nil {
 			C.free(cbuf)
 			return nil, err
 		}
@@ -359,6 +373,33 @@ func parseAllowedIPs(aips []wgh.WGIP) ([]net.IPNet, error) {
 	}
 
 	return ipns, nil
+}
+
+// ioctlIfgroupreq returns a function which performs the appropriate ioctl on
+// fd to retrieve members of an interface group.
+func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq, unsafe.Pointer) error {
+	// ioctl doesn't need a direct pointer to the C memory.
+	return func(ifg *wgh.Ifgroupreq, _ unsafe.Pointer) error {
+		return ioctl(fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(ifg))
+	}
+}
+
+// ioctlWGGetServ returns a function which performs the appropriate ioctl on
+// fd to fetch information about a WireGuard device.
+func ioctlWGGetServ(fd int) func(*wgh.WGGetServ, unsafe.Pointer) error {
+	// ioctl doesn't need a direct pointer to the C memory.
+	return func(wgs *wgh.WGGetServ, _ unsafe.Pointer) error {
+		return ioctl(fd, wgh.SIOCGWGSERV, unsafe.Pointer(wgs))
+	}
+}
+
+// ioctlWGGetPeer returns a function which performs the appropriate ioctl on
+// fd to fetch information about a peer associated with a WireGuard device.
+func ioctlWGGetPeer(fd int) func(*wgh.WGGetPeer, unsafe.Pointer) error {
+	// ioctl doesn't need a direct pointer to the C memory.
+	return func(wgp *wgh.WGGetPeer, _ unsafe.Pointer) error {
+		return ioctl(fd, wgh.SIOCGWGPEER, unsafe.Pointer(wgp))
+	}
 }
 
 // ioctl is a raw wrapper for the ioctl system call.
