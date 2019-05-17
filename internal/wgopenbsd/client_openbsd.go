@@ -4,6 +4,7 @@ package wgopenbsd
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
@@ -318,7 +319,7 @@ func parseEndpoint(ip wgh.WGIP) (*net.UDPAddr, error) {
 
 		ep := &net.UDPAddr{
 			IP:   make(net.IP, net.IPv4len),
-			Port: int(sa.Port),
+			Port: bePort(sa.Port),
 		}
 		copy(ep.IP, sa.Addr[:])
 
@@ -329,7 +330,7 @@ func parseEndpoint(ip wgh.WGIP) (*net.UDPAddr, error) {
 		// TODO(mdlayher): IPv6 zone?
 		ep := &net.UDPAddr{
 			IP:   make(net.IP, net.IPv6len),
-			Port: int(sa.Port),
+			Port: bePort(sa.Port),
 		}
 		copy(ep.IP, sa.Addr[:])
 
@@ -338,6 +339,14 @@ func parseEndpoint(ip wgh.WGIP) (*net.UDPAddr, error) {
 		// No endpoint configured.
 		return nil, nil
 	}
+}
+
+// bePort interprets a port integer stored in native endianness as a big
+// endian value. This is necessary for proper endpoint port handling on
+// little endian machines.
+func bePort(port uint16) int {
+	b := *(*[2]byte)(unsafe.Pointer(&port))
+	return int(binary.BigEndian.Uint16(b[:]))
 }
 
 // parseAllowedIPs parses allowed IPs from a []wgh.WGIP slice.
