@@ -16,10 +16,11 @@ fi
 
 if [ "${KERNEL}" == "Linux" ]; then
     # Set up the WireGuard kernel module on Linux.
-    sudo apt-get -y install software-properties-common
+    sudo apt --allow-unauthenticated -y update
+    sudo apt -y install software-properties-common
     sudo add-apt-repository -y ppa:wireguard/wireguard
-    sudo apt-get --allow-unauthenticated -y update
-    sudo apt-get --allow-unauthenticated -y install linux-headers-$(uname -r) wireguard-dkms wireguard-tools
+    sudo apt --allow-unauthenticated -y update
+    sudo apt --allow-unauthenticated -y install linux-headers-$(uname -r) wireguard-dkms wireguard-tools
 
     # Configure a WireGuard interface.
     sudo ip link add wg0 type wireguard
