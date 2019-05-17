@@ -5,12 +5,18 @@
 
 package wgh
 
-const SIOCGIFGMEMB = 0xc024698a
+const (
+	SIOCGIFGMEMB = 0xc024698a
+
+	SizeofIfgreq = 0x10
+)
 
 type Ifgroupreq struct {
-	Name  [16]byte
-	Len   uint32
-	Ifgru [16]byte
+	Name   [16]byte
+	Len    uint32
+	Pad1   [0]byte
+	Groups *Ifgreq
+	Pad2   [12]byte
 }
 
 type Ifgreq struct {
@@ -25,6 +31,8 @@ type Timespec struct {
 const (
 	SIOCGWGSERV = 0xc03c69c8
 	SIOCGWGPEER = 0xc09469c9
+
+	SizeofWGIP = 0x1c
 
 	WGStateNoSession = 0x0
 	WGStateInitiator = 0x1
