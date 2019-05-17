@@ -109,8 +109,6 @@ func TestClientDeviceBasic(t *testing.T) {
 		psk  = wgtest.MustPresharedKey()
 	)
 
-	//var calls int
-
 	c := &Client{
 		ioctlIfgroupreq: func(_ *wgh.Ifgroupreq, _ unsafe.Pointer) error {
 			panic("no calls to Client.Devices, should not be called")
