@@ -5,8 +5,10 @@ package wgopenbsd
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -23,6 +25,7 @@ import "C"
 
 const (
 	sizeofIfgreq = uint32(unsafe.Sizeof(wgh.Ifgreq{}))
+	sizeofWGIP   = unsafe.Sizeof(wgh.WGIP{})
 )
 
 var _ wginternal.Client = &Client{}
@@ -120,10 +123,12 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 
 	d.Peers = make([]wgtypes.Peer, 0, len(pkeys))
 	for _, pk := range pkeys {
-		// TODO(mdlayher): parsing for remaining peer fields.
-		d.Peers = append(d.Peers, wgtypes.Peer{
-			PublicKey: pk,
-		})
+		p, err := c.getPeer(d.Name, pk)
+		if err != nil {
+			return nil, err
+		}
+
+		d.Peers = append(d.Peers, *p)
 	}
 
 	return d, nil
@@ -202,6 +207,82 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 	}, keys, nil
 }
 
+// getPeer fetches a peer associated with a device and a public key.
+func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, error) {
+	nb, err := deviceName(device)
+	if err != nil {
+		return nil, err
+	}
+
+	// The algorithm implemented here is the same as the one documented in
+	// getServ, but we are fetching WGIP allowed IP arrays instead of peer
+	// public keys. See the more in-depth documentation there.
+
+	// 16 is the initial array size value used by ncon's wg fork.
+	wgp := wgh.WGGetPeer{
+		Name:    nb,
+		Pubkey:  pubkey,
+		Num_aip: 16,
+	}
+
+	var (
+		// Any return site _must_ free cbuf; we aren't using defer immediately
+		// because of the loop and the use of reallocarray means the location
+		// cbuf points to can change.
+		n    uint64
+		cbuf unsafe.Pointer
+	)
+
+	for {
+		n = wgp.Num_aip
+
+		// Allocate enough space for n WGIP structures in an array.
+		cbuf = C.reallocarray(cbuf, C.size_t(n), C.size_t(sizeofWGIP))
+		wgp.Aip = (*[sizeofWGIP]byte)(cbuf)
+
+		// Query for a peer by its associated device and public key.
+		if err := ioctl(c.fd, wgh.SIOCGWGPEER, unsafe.Pointer(&wgp)); err != nil {
+			C.free(cbuf)
+			return nil, err
+		}
+
+		// Did the kernel tell us there are more allowed IPs than can fit in our
+		// current memory? If not, we're done.
+		if wgp.Num_aip <= n {
+			// Update n one final time so we know how much memory we need to
+			// copy from C to Go.
+			n = wgp.Num_aip
+			break
+		}
+	}
+
+	// No more loop and no more chance for cbuf address to change, so defer
+	// freeing for any further return sites.
+	defer C.free(cbuf)
+
+	endpoint, err := parseEndpoint(wgp.Ip)
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy C memory into a Go slice, see also:
+	// https://github.com/golang/go/wiki/cgo#turning-c-arrays-into-go-slices.
+	allowedIPs, err := parseAllowedIPs((*[1 << 30]wgh.WGIP)(cbuf)[:n:n])
+	if err != nil {
+		return nil, err
+	}
+
+	return &wgtypes.Peer{
+		PublicKey:         pubkey,
+		PresharedKey:      wgp.Psk,
+		Endpoint:          endpoint,
+		LastHandshakeTime: time.Unix(wgp.Last_handshake.Sec, wgp.Last_handshake.Nsec),
+		ReceiveBytes:      int64(wgp.Rx_bytes),
+		TransmitBytes:     int64(wgp.Tx_bytes),
+		AllowedIPs:        allowedIPs,
+	}, nil
+}
+
 // deviceName converts an interface name string to the format required to pass
 // with wgh.WGGetServ.
 func deviceName(name string) ([16]int8, error) {
@@ -216,6 +297,68 @@ func deviceName(name string) ([16]int8, error) {
 	}
 
 	return out, nil
+}
+
+// parseEndpoint parses a peer endpoint from a wgh.WGIP structure.
+func parseEndpoint(ip wgh.WGIP) (*net.UDPAddr, error) {
+	// sockaddr* structures have family at index 1.
+	switch ip[1] {
+	case unix.AF_INET:
+		sa := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&ip[0]))
+
+		ep := &net.UDPAddr{
+			IP:   make(net.IP, net.IPv4len),
+			Port: int(sa.Port),
+		}
+		copy(ep.IP, sa.Addr[:])
+
+		return ep, nil
+	case unix.AF_INET6:
+		sa := *(*unix.RawSockaddrInet6)(unsafe.Pointer(&ip[0]))
+
+		// TODO(mdlayher): IPv6 zone?
+		ep := &net.UDPAddr{
+			IP:   make(net.IP, net.IPv6len),
+			Port: int(sa.Port),
+		}
+		copy(ep.IP, sa.Addr[:])
+
+		return ep, nil
+	default:
+		// No endpoint configured.
+		return nil, nil
+	}
+}
+
+// parseAllowedIPs parses allowed IPs from a []wgh.WGIP slice.
+func parseAllowedIPs(aips []wgh.WGIP) ([]net.IPNet, error) {
+	ipns := make([]net.IPNet, 0, len(aips))
+	for _, aip := range aips {
+		var ipn net.IPNet
+
+		// sockaddr* structures have family at index 1.
+		switch aip[1] {
+		case unix.AF_INET:
+			ip := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&aip[0]))
+
+			ipn.IP = make(net.IP, net.IPv4len)
+			copy(ipn.IP, ip.Addr[:])
+			ipn.Mask = net.CIDRMask(int(ip.Port), 32)
+		case unix.AF_INET6:
+			ip := *(*unix.RawSockaddrInet6)(unsafe.Pointer(&aip[0]))
+
+			ipn.IP = make(net.IP, net.IPv6len)
+			copy(ipn.IP, ip.Addr[:])
+			ipn.Mask = net.CIDRMask(int(ip.Port), 128)
+		default:
+			// Unrecognized address family?
+			continue
+		}
+
+		ipns = append(ipns, ipn)
+	}
+
+	return ipns, nil
 }
 
 // ioctl is a raw wrapper for the ioctl system call.
