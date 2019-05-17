@@ -8,7 +8,7 @@ package wgh
 const SIOCGIFGMEMB = 0xc024698a
 
 type Ifgroupreq struct {
-	Name  [16]int8
+	Name  [16]byte
 	Len   uint32
 	Ifgru [16]byte
 }
@@ -32,17 +32,17 @@ const (
 )
 
 type WGGetServ struct {
-	Name      [16]int8
-	Pubkey    [32]uint8
+	Name      [16]byte
+	Pubkey    [32]byte
 	Port      uint16
 	Num_peers uint32
-	Peers     *[32]uint8
+	Peers     *[32]byte
 }
 
 type WGGetPeer struct {
-	Name           [16]int8
-	Pubkey         [32]uint8
-	Psk            [32]uint8
+	Name           [16]byte
+	Pubkey         [32]byte
+	Psk            [32]byte
 	Tx_bytes       uint64
 	Rx_bytes       uint64
 	Ip             [28]byte

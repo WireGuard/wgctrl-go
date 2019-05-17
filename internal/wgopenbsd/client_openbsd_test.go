@@ -3,11 +3,11 @@
 package wgopenbsd
 
 import (
+	"fmt"
 	"testing"
 	"unsafe"
 
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgopenbsd/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -90,12 +90,14 @@ func TestClientDevices(t *testing.T) {
 }
 
 func devName(name string) [16]byte {
-	var out [unix.IFNAMSIZ]byte
-	buf := []byte(name)
-
-	for i, b := range buf {
-		out[i] = b
+	nb, err := deviceName(name)
+	if err != nil {
+		panicf("failed to make device name bytes: %v", err)
 	}
 
-	return out
+	return nb
+}
+
+func panicf(format string, a ...interface{}) {
+	panic(fmt.Sprintf(format, a...))
 }

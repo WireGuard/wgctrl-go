@@ -1,11 +1,27 @@
 #/bin/sh
 
+set -x
+
+# Fix up generated code.
+gofix()
+{
+    IN=$1
+    OUT=$2
+
+    # Change types that are a nuisance to deal with in Go, use byte for
+    # consistency, and produce gofmt'd output.
+    sed 's/]u*int8/]byte/g' $1 | gofmt -s > $2
+}
+
 curl https://git.noconroy.net/wireguard-bsd.git/plain/src/if_wg.h -o if_wg.h
 
-echo -e "//+build openbsd,amd64\n" > defs_openbsd_amd64.go
-GOARCH=amd64 go tool cgo -godefs defs.go >> defs_openbsd_amd64.go
+echo -e "//+build openbsd,amd64\n" > /tmp/wgamd64.go
+GOARCH=amd64 go tool cgo -godefs defs.go >> /tmp/wgamd64.go
 
-echo -e "//+build openbsd,386\n" > defs_openbsd_386.go
-GOARCH=386 go tool cgo -godefs defs.go >> defs_openbsd_386.go
+echo -e "//+build openbsd,386\n" > /tmp/wg386.go
+GOARCH=386 go tool cgo -godefs defs.go >> /tmp/wg386.go
 
-rm -rf if_wg.h _obj/
+gofix /tmp/wgamd64.go defs_openbsd_amd64.go
+gofix /tmp/wg386.go defs_openbsd_386.go
+
+rm -rf if_wg.h _obj/ /tmp/wg*.go

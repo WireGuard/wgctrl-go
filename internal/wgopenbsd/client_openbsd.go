@@ -30,7 +30,7 @@ const (
 
 var (
 	// ifGroupWG is the WireGuard interface group name passed to the kernel.
-	ifGroupWG = [16]int8{0: 'w', 1: 'g'}
+	ifGroupWG = [16]byte{0: 'w', 1: 'g'}
 )
 
 var _ wginternal.Client = &Client{}
@@ -184,10 +184,10 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 		// kernel tells us we need to provide more space.
 		n = wgs.Num_peers
 
-		// Allocate enough space for n*30 (wgtypes.KeyLen) peer public keys and
-		// point the kernel to our C memory.
+		// Allocate enough space for n*30 (wgtypes.KeyLen) peer public key bytes
+		// and point the kernel to our C memory.
 		cbuf = C.reallocarray(cbuf, C.size_t(n), wgtypes.KeyLen)
-		wgs.Peers = (*[wgtypes.KeyLen]uint8)(cbuf)
+		wgs.Peers = (*[wgtypes.KeyLen]byte)(cbuf)
 
 		// Query for a device by its name.
 		if err := c.ioctlWGGetServ(&wgs, cbuf); err != nil {
@@ -299,17 +299,13 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 
 // deviceName converts an interface name string to the format required to pass
 // with wgh.WGGetServ.
-func deviceName(name string) ([16]int8, error) {
-	var out [unix.IFNAMSIZ]int8
-	buf := []byte(name)
-	if len(buf) > unix.IFNAMSIZ {
+func deviceName(name string) ([16]byte, error) {
+	var out [unix.IFNAMSIZ]byte
+	if len(name) > unix.IFNAMSIZ {
 		return out, fmt.Errorf("wgopenbsd: interface name %q too long", name)
 	}
 
-	for i, b := range buf {
-		out[i] = int8(b)
-	}
-
+	copy(out[:], name)
 	return out, nil
 }
 
