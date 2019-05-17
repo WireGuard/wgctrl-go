@@ -5,6 +5,7 @@ package wgopenbsd
 import (
 	"fmt"
 	"net"
+	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -205,6 +206,36 @@ func TestClientDeviceBasic(t *testing.T) {
 
 	if diff := cmp.Diff(want, d); diff != "" {
 		t.Fatalf("unexpected device (-want +got):\n%s", diff)
+	}
+}
+
+func TestClientDeviceNotExist(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "ENXIO",
+			err:  os.NewSyscallError("ioctl", unix.ENXIO),
+		},
+		{
+			name: "ENOTTY",
+			err:  os.NewSyscallError("ioctl", unix.ENOTTY),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{
+				ioctlWGGetServ: func(_ *wgh.WGGetServ, _ unsafe.Pointer) error {
+					return tt.err
+				},
+			}
+
+			if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+				t.Fatalf("expected is not exist, but got: %v", err)
+			}
+		})
 	}
 }
 

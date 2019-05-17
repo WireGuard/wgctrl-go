@@ -193,7 +193,16 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 		// Query for a device by its name.
 		if err := c.ioctlWGGetServ(&wgs, cbuf); err != nil {
 			C.free(cbuf)
-			return nil, nil, err
+
+			// ioctl functions always return a wrapped unix.Errno value.
+			// Conform to the wgctrl contract by converting "no such device" and
+			// "inappropriate ioctl" to "not exist".
+			switch err.(*os.SyscallError).Err {
+			case unix.ENXIO, unix.ENOTTY:
+				return nil, nil, os.ErrNotExist
+			default:
+				return nil, nil, err
+			}
 		}
 
 		// Did the kernel tell us there are more peers than can fit in our
