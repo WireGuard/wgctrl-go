@@ -18,8 +18,9 @@ package wgh
 struct go_ifgroupreq {
 	char	ifgr_name[IFNAMSIZ];
 	u_int	ifgr_len;
+	char    ifgr_pad1[-1 * (4 - sizeof(void*))];
 	struct	ifg_req *ifgr_groups;
-	char    ifgr_pad[16 - sizeof(void*)];
+	char    ifgr_pad2[16 - sizeof(void*)];
 };
 */
 import "C"

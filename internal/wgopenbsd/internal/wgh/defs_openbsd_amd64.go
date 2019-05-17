@@ -14,8 +14,9 @@ const (
 type Ifgroupreq struct {
 	Name   [16]byte
 	Len    uint32
+	Pad1   [4]byte
 	Groups *Ifgreq
-	Pad    [8]byte
+	Pad2   [8]byte
 }
 
 type Ifgreq struct {
