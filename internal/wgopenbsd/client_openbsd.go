@@ -159,14 +159,14 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 	var (
 		// The number of peer public keys we should allocate space for, and
 		// the slice where keys are allocated.
-		n     uint64
+		n     int
 		bkeys [][wgtypes.KeyLen]byte // []wgtypes.Key equivalent
 	)
 
 	for {
 		// Updated on each loop iteration to provide enough space in case the
 		// kernel tells us we need to provide more space.
-		n = wgs.Num_peers
+		n = int(wgs.Num_peers)
 
 		// See the comment in Devices about passing Go pointers within a
 		// structure to ioctl.
@@ -189,7 +189,7 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 
 		// Did the kernel tell us there are more peers than can fit in our
 		// current memory? If not, we're done.
-		if wgs.Num_peers <= n {
+		if int(wgs.Num_peers) <= n {
 			// Re-slice to the exact size needed.
 			bkeys = bkeys[:wgs.Num_peers:wgs.Num_peers]
 			break
@@ -227,12 +227,12 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 	}
 
 	var (
-		n    uint64
+		n    int
 		aips [][28]byte // []wgh.WGIP equivalent
 	)
 
 	for {
-		n = wgp.Num_aip
+		n = int(wgp.Num_aip)
 
 		// See the comment in Devices about passing Go pointers within a
 		// structure to ioctl.
@@ -246,7 +246,7 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 
 		// Did the kernel tell us there are more allowed IPs than can fit in our
 		// current memory? If not, we're done.
-		if wgp.Num_aip <= n {
+		if int(wgp.Num_aip) <= n {
 			// Re-slice to the exact size needed.
 			aips = aips[:wgp.Num_aip:wgp.Num_aip]
 			break
@@ -264,13 +264,17 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 	}
 
 	return &wgtypes.Peer{
-		PublicKey:         pubkey,
-		PresharedKey:      wgp.Psk,
-		Endpoint:          endpoint,
-		LastHandshakeTime: time.Unix(wgp.Last_handshake.Sec, wgp.Last_handshake.Nsec),
-		ReceiveBytes:      int64(wgp.Rx_bytes),
-		TransmitBytes:     int64(wgp.Tx_bytes),
-		AllowedIPs:        allowedIPs,
+		PublicKey:    pubkey,
+		PresharedKey: wgp.Psk,
+		Endpoint:     endpoint,
+		LastHandshakeTime: time.Unix(
+			wgp.Last_handshake.Sec,
+			// Conversion required on openbsd/386.
+			int64(wgp.Last_handshake.Nsec),
+		),
+		ReceiveBytes:  int64(wgp.Rx_bytes),
+		TransmitBytes: int64(wgp.Tx_bytes),
+		AllowedIPs:    allowedIPs,
 	}, nil
 }
 
