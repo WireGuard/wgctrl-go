@@ -57,3 +57,5 @@ type WGGetServ C.struct_wg_get_serv
 type WGGetPeer C.struct_wg_get_peer
 
 type WGIP C.union_wg_ip
+
+type WGCIDR C.struct_wg_cidr
