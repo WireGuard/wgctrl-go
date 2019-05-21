@@ -27,7 +27,7 @@ func TestClientDevices(t *testing.T) {
 	)
 
 	var calls int
-	ifgrFunc := func(ifg *wgh.Ifgroupreq, ptr unsafe.Pointer) error {
+	ifgrFunc := func(ifg *wgh.Ifgroupreq) error {
 		// Verify the caller is asking for WireGuard interface group members.
 		if diff := cmp.Diff(ifGroupWG, ifg.Name); diff != "" {
 			t.Fatalf("unexpected interface group (-want +got):\n%s", diff)
@@ -38,14 +38,9 @@ func TestClientDevices(t *testing.T) {
 			// Inform the caller that we have n device names available.
 			ifg.Len = n * wgh.SizeofIfgreq
 		case 1:
-			// Verify that the pointer stored in the union matches the pointer
-			// to memory received by this function.
-			if diff := cmp.Diff(ptr, unsafe.Pointer(ifg.Groups)); diff != "" {
-				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
-			}
-
-			// Populate the memory with device names.
-			*(*[n]wgh.Ifgreq)(ptr) = [n]wgh.Ifgreq{
+			// The structure pointed at is the first in an array. Populate the
+			// array memory with device names.
+			*(*[n]wgh.Ifgreq)(unsafe.Pointer(ifg.Groups)) = [n]wgh.Ifgreq{
 				{Ifgrqu: devName(devA)},
 				{Ifgrqu: devName(devB)},
 			}
@@ -59,12 +54,12 @@ func TestClientDevices(t *testing.T) {
 
 	c := &Client{
 		ioctlIfgroupreq: ifgrFunc,
-		ioctlWGGetServ: func(wgs *wgh.WGGetServ, _ unsafe.Pointer) error {
+		ioctlWGGetServ: func(wgs *wgh.WGGetServ) error {
 			// No added device information, no peer information.
 			wgs.Num_peers = 0
 			return nil
 		},
-		ioctlWGGetPeer: func(_ *wgh.WGGetPeer, _ unsafe.Pointer) error {
+		ioctlWGGetPeer: func(_ *wgh.WGGetPeer) error {
 			panic("no peers configured, should not be called")
 		},
 	}
@@ -111,18 +106,13 @@ func TestClientDeviceBasic(t *testing.T) {
 	)
 
 	c := &Client{
-		ioctlIfgroupreq: func(_ *wgh.Ifgroupreq, _ unsafe.Pointer) error {
+		ioctlIfgroupreq: func(_ *wgh.Ifgroupreq) error {
 			panic("no calls to Client.Devices, should not be called")
 		},
-		ioctlWGGetServ: func(wgs *wgh.WGGetServ, ptr unsafe.Pointer) error {
-			// Verify that the pointer stored in wgs matches the pointer
-			// to memory received by this function.
-			if diff := cmp.Diff(ptr, unsafe.Pointer(&wgs.Peers[0])); diff != "" {
-				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
-			}
-
-			// Populate the memory with peer public key.
-			*(*[nPeers]wgtypes.Key)(ptr) = [nPeers]wgtypes.Key{peer}
+		ioctlWGGetServ: func(wgs *wgh.WGGetServ) error {
+			// The structure pointed at is the first in an array of byte arrays.
+			// Populate the array memory with device names.
+			*(*[nPeers]wgtypes.Key)(unsafe.Pointer(&wgs.Peers[0])) = [nPeers]wgtypes.Key{peer}
 
 			// Fill in some device information and indicate number of peers.
 			wgs.Pubkey = pub
@@ -131,7 +121,7 @@ func TestClientDeviceBasic(t *testing.T) {
 			wgs.Num_peers = nPeers
 			return nil
 		},
-		ioctlWGGetPeer: func(wgp *wgh.WGGetPeer, ptr unsafe.Pointer) error {
+		ioctlWGGetPeer: func(wgp *wgh.WGGetPeer) error {
 			// Verify the device name and peer public key.
 			if diff := cmp.Diff(devName(device), wgp.Name); diff != "" {
 				t.Fatalf("unexpected device name bytes (-want +got):\n%s", diff)
@@ -140,15 +130,10 @@ func TestClientDeviceBasic(t *testing.T) {
 				t.Fatalf("unexpected peer public key (-want +got):\n%s", diff)
 			}
 
-			// Verify that the pointer stored in wgp matches the pointer
-			// to memory received by this function.
-			if diff := cmp.Diff(ptr, unsafe.Pointer(wgp.Aip)); diff != "" {
-				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
-			}
-
-			// Populate the memory with allowed IPs.
+			// The structure pointed at is the first in an array. Populate the
+			// array memory with device names.
 			wgp.Num_aip = nAllowedIPs
-			*(*[nAllowedIPs]wgh.WGCIDR)(ptr) = [nAllowedIPs]wgh.WGCIDR{
+			*(*[nAllowedIPs]wgh.WGCIDR)(unsafe.Pointer(wgp.Aip)) = [nAllowedIPs]wgh.WGCIDR{
 				{
 					Af:   unix.AF_INET,
 					Mask: 24,
@@ -227,7 +212,7 @@ func TestClientDeviceNotExist(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Client{
-				ioctlWGGetServ: func(_ *wgh.WGGetServ, _ unsafe.Pointer) error {
+				ioctlWGGetServ: func(_ *wgh.WGGetServ) error {
 					return tt.err
 				},
 			}

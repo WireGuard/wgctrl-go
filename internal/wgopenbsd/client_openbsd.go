@@ -30,9 +30,9 @@ type Client struct {
 	// Hooks which use system calls by default, but can also be swapped out
 	// during tests.
 	close           func() error
-	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq, ptr unsafe.Pointer) error
-	ioctlWGGetServ  func(wgs *wgh.WGGetServ, ptr unsafe.Pointer) error
-	ioctlWGGetPeer  func(wgp *wgh.WGGetPeer, ptr unsafe.Pointer) error
+	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq) error
+	ioctlWGGetServ  func(wgs *wgh.WGGetServ) error
+	ioctlWGGetPeer  func(wgp *wgh.WGGetPeer) error
 }
 
 // New creates a new Client and returns whether or not the ioctl interface
@@ -71,7 +71,7 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	}
 
 	// Determine how many device names we must allocate memory for.
-	if err := c.ioctlIfgroupreq(&ifg, nil); err != nil {
+	if err := c.ioctlIfgroupreq(&ifg); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 	ifg.Groups = &ifgrs[0]
 
 	// Now actually fetch the device names.
-	if err := c.ioctlIfgroupreq(&ifg, unsafe.Pointer(&ifgrs[0])); err != nil {
+	if err := c.ioctlIfgroupreq(&ifg); err != nil {
 		return nil, err
 	}
 
@@ -174,7 +174,7 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 		wgs.Peers = &bkeys[0]
 
 		// Query for a device by its name.
-		if err := c.ioctlWGGetServ(&wgs, unsafe.Pointer(&bkeys[0])); err != nil {
+		if err := c.ioctlWGGetServ(&wgs); err != nil {
 
 			// ioctl functions always return a wrapped unix.Errno value.
 			// Conform to the wgctrl contract by converting "no such device" and
@@ -241,7 +241,7 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 		wgp.Aip = &aips[0]
 
 		// Query for a peer by its associated device and public key.
-		if err := c.ioctlWGGetPeer(&wgp, unsafe.Pointer(&aips[0])); err != nil {
+		if err := c.ioctlWGGetPeer(&wgp); err != nil {
 			return nil, err
 		}
 
@@ -359,27 +359,24 @@ func parseAllowedIPs(aips []wgh.WGCIDR) ([]net.IPNet, error) {
 
 // ioctlIfgroupreq returns a function which performs the appropriate ioctl on
 // fd to retrieve members of an interface group.
-func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq, unsafe.Pointer) error {
-	// ioctl doesn't need a direct pointer to the memory.
-	return func(ifg *wgh.Ifgroupreq, _ unsafe.Pointer) error {
+func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq) error {
+	return func(ifg *wgh.Ifgroupreq) error {
 		return ioctl(fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(ifg))
 	}
 }
 
 // ioctlWGGetServ returns a function which performs the appropriate ioctl on
 // fd to fetch information about a WireGuard device.
-func ioctlWGGetServ(fd int) func(*wgh.WGGetServ, unsafe.Pointer) error {
-	// ioctl doesn't need a direct pointer to the memory.
-	return func(wgs *wgh.WGGetServ, _ unsafe.Pointer) error {
+func ioctlWGGetServ(fd int) func(*wgh.WGGetServ) error {
+	return func(wgs *wgh.WGGetServ) error {
 		return ioctl(fd, wgh.SIOCGWGSERV, unsafe.Pointer(wgs))
 	}
 }
 
 // ioctlWGGetPeer returns a function which performs the appropriate ioctl on
 // fd to fetch information about a peer associated with a WireGuard device.
-func ioctlWGGetPeer(fd int) func(*wgh.WGGetPeer, unsafe.Pointer) error {
-	// ioctl doesn't need a direct pointer to the memory.
-	return func(wgp *wgh.WGGetPeer, _ unsafe.Pointer) error {
+func ioctlWGGetPeer(fd int) func(*wgh.WGGetPeer) error {
+	return func(wgp *wgh.WGGetPeer) error {
 		return ioctl(fd, wgh.SIOCGWGPEER, unsafe.Pointer(wgp))
 	}
 }
