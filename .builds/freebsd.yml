@@ -5,6 +5,7 @@ sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
+  WGCTRL_INTEGRATION: "yesreallydoit"
 tasks:
   - setup-wireguard: |
       ./wgctrl-go/.cibuild.sh

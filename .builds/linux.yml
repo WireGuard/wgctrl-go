@@ -3,6 +3,7 @@ sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
+  WGCTRL_INTEGRATION: "yesreallydoit"
 tasks:
   - install-go: |
       wget -q https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz

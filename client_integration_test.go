@@ -1,5 +1,3 @@
-//+build integration
-
 package wgctrl_test
 
 import (
@@ -18,16 +16,9 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func TestClientIntegration(t *testing.T) {
-	c, err := wgctrl.New()
-	if err != nil {
-		if os.IsNotExist(err) {
-			t.Skip("skipping, wgctrl is not available on this system")
-		}
-
-		t.Fatalf("failed to open client: %v", err)
-	}
-	defer c.Close()
+func TestIntegrationClient(t *testing.T) {
+	c, done := integrationClient(t)
+	defer done()
 
 	devices, err := c.Devices()
 	if err != nil {
@@ -92,7 +83,28 @@ func TestClientIntegration(t *testing.T) {
 	}
 }
 
-func TestClientIntegrationIsNotExist(t *testing.T) {
+func TestIntegrationClientIsNotExist(t *testing.T) {
+	c, done := integrationClient(t)
+	defer done()
+
+	if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+		t.Fatalf("expected is not exist error, but got: %v", err)
+	}
+}
+
+func integrationClient(t *testing.T) (*wgctrl.Client, func()) {
+	t.Helper()
+
+	const (
+		env     = "WGCTRL_INTEGRATION"
+		confirm = "yesreallydoit"
+	)
+
+	if os.Getenv(env) != confirm {
+		t.Skipf("skipping, set '%s=%s to run; DANGER: this will reset and reconfigure any detected WireGuard devices",
+			env, confirm)
+	}
+
 	c, err := wgctrl.New()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -101,10 +113,11 @@ func TestClientIntegrationIsNotExist(t *testing.T) {
 
 		t.Fatalf("failed to open client: %v", err)
 	}
-	defer c.Close()
 
-	if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
-		t.Fatalf("expected is not exist error, but got: %v", err)
+	return c, func() {
+		if err := c.Close(); err != nil {
+			t.Fatalf("failed to close client: %v", err)
+		}
 	}
 }
 

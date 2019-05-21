@@ -6,6 +6,7 @@ sources:
 environment:
   GO111MODULE: "on"
   GOOS: "windows"
+  WGCTRL_INTEGRATION: "yesreallydoit"
 tasks:
   - install-wine: |
       # Make wine happy by also installing 32-bit libraries.
