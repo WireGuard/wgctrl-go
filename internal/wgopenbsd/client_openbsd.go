@@ -203,6 +203,7 @@ func (c *Client) getServ(name string) (*wgtypes.Device, []wgtypes.Key, error) {
 	return &wgtypes.Device{
 		Name:       name,
 		Type:       wgtypes.OpenBSDKernel,
+		PrivateKey: wgs.Privkey,
 		PublicKey:  wgs.Pubkey,
 		ListenPort: int(wgs.Port),
 	}, keys, nil
@@ -228,7 +229,7 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 
 	var (
 		n    int
-		aips [][28]byte // []wgh.WGIP equivalent
+		aips []wgh.WGCIDR
 	)
 
 	for {
@@ -236,7 +237,7 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 
 		// See the comment in Devices about passing Go pointers within a
 		// structure to ioctl.
-		aips = make([][28]byte, n)
+		aips = make([]wgh.WGCIDR, n)
 		wgp.Aip = &aips[0]
 
 		// Query for a peer by its associated device and public key.
@@ -329,32 +330,28 @@ func bePort(port uint16) int {
 	return int(binary.BigEndian.Uint16(b[:]))
 }
 
-// parseAllowedIPs parses allowed IPs from a slice representing a sockaddr union.
-func parseAllowedIPs(aips [][28]byte) ([]net.IPNet, error) {
+// parseAllowedIPs parses allowed IPs from a slice of wgh.WGCIDR structures.
+func parseAllowedIPs(aips []wgh.WGCIDR) ([]net.IPNet, error) {
 	ipns := make([]net.IPNet, 0, len(aips))
 	for _, aip := range aips {
-		var ipn net.IPNet
-
-		// sockaddr* structures have family at index 1.
-		switch aip[1] {
+		var size, masklen int
+		switch aip.Af {
 		case unix.AF_INET:
-			ip := *(*unix.RawSockaddrInet4)(unsafe.Pointer(&aip[0]))
-
-			ipn.IP = make(net.IP, net.IPv4len)
-			copy(ipn.IP, ip.Addr[:])
-			ipn.Mask = net.CIDRMask(int(ip.Port), 32)
+			size, masklen = net.IPv4len, 32
 		case unix.AF_INET6:
-			ip := *(*unix.RawSockaddrInet6)(unsafe.Pointer(&aip[0]))
-
-			ipn.IP = make(net.IP, net.IPv6len)
-			copy(ipn.IP, ip.Addr[:])
-			ipn.Mask = net.CIDRMask(int(ip.Port), 128)
+			size, masklen = net.IPv6len, 128
 		default:
-			// Unrecognized address family?
-			continue
+			return nil, fmt.Errorf("wgopenbsd: unrecognized allowed IP address family: %d", aip.Af)
 		}
 
-		ipns = append(ipns, ipn)
+		// Copy the array from aip to retain it.
+		ip := make(net.IP, size)
+		copy(ip, aip.Ip[:size])
+
+		ipns = append(ipns, net.IPNet{
+			IP:   ip,
+			Mask: net.CIDRMask(int(aip.Mask), masklen),
+		})
 	}
 
 	return ipns, nil

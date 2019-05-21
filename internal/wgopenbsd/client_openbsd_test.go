@@ -103,9 +103,9 @@ func TestClientDeviceBasic(t *testing.T) {
 		nAllowedIPs = 2
 	)
 
-	// TODO(mdlayher): return device private key when the interface supports it.
 	var (
-		pub  = wgtest.MustPublicKey()
+		priv = wgtest.MustPrivateKey()
+		pub  = priv.PublicKey()
 		peer = wgtest.MustPublicKey()
 		psk  = wgtest.MustPresharedKey()
 	)
@@ -126,6 +126,7 @@ func TestClientDeviceBasic(t *testing.T) {
 
 			// Fill in some device information and indicate number of peers.
 			wgs.Pubkey = pub
+			wgs.Privkey = priv
 			wgs.Port = 8080
 			wgs.Num_peers = nPeers
 			return nil
@@ -141,25 +142,23 @@ func TestClientDeviceBasic(t *testing.T) {
 
 			// Verify that the pointer stored in wgp matches the pointer
 			// to memory received by this function.
-			if diff := cmp.Diff(ptr, unsafe.Pointer(&wgp.Aip[0])); diff != "" {
+			if diff := cmp.Diff(ptr, unsafe.Pointer(wgp.Aip)); diff != "" {
 				t.Fatalf("unexpected pointer to memory (-want +got):\n%s", diff)
 			}
 
 			// Populate the memory with allowed IPs.
 			wgp.Num_aip = nAllowedIPs
-			*(*[nAllowedIPs]wgh.WGIP)(ptr) = [nAllowedIPs]wgh.WGIP{
-				// unix.RawSockaddrInet* structures are repurposed for allowed
-				// IP subnets. Port is treated as the CIDR mask.
-				*(*wgh.WGIP)(unsafe.Pointer(&unix.RawSockaddrInet4{
-					Family: unix.AF_INET,
-					Addr:   [4]byte{192, 168, 1, 0},
-					Port:   24,
-				})),
-				*(*wgh.WGIP)(unsafe.Pointer(&unix.RawSockaddrInet6{
-					Family: unix.AF_INET6,
-					Addr:   [16]byte{0: 0xfd},
-					Port:   64,
-				})),
+			*(*[nAllowedIPs]wgh.WGCIDR)(ptr) = [nAllowedIPs]wgh.WGCIDR{
+				{
+					Af:   unix.AF_INET,
+					Mask: 24,
+					Ip:   [16]byte{0: 192, 1: 168, 2: 1, 3: 0},
+				},
+				{
+					Af:   unix.AF_INET6,
+					Mask: 64,
+					Ip:   [16]byte{0: 0xfd},
+				},
 			}
 
 			// Fill in peer information.
@@ -188,6 +187,7 @@ func TestClientDeviceBasic(t *testing.T) {
 	want := &wgtypes.Device{
 		Name:       device,
 		Type:       wgtypes.OpenBSDKernel,
+		PrivateKey: priv,
 		PublicKey:  pub,
 		ListenPort: 8080,
 		Peers: []wgtypes.Peer{{
