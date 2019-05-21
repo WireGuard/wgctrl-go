@@ -6,7 +6,6 @@ sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
-  WGCTRL_INTEGRATION: "yesreallydoit"
 tasks:
   - setup-wireguard: |
       ./wgctrl-go/.cibuild.sh
@@ -23,7 +22,7 @@ tasks:
       go test -v ./...
       # 32-bit sanity checking for different kernel structure sizes.
       GOARCH=386 go build ./...
-      go test -c -tags=integration .
+      go test -c .
       # Use wireguard-go for additional testing.
       doas /home/build/go/bin/wireguard-go tun0
-      doas ./wgctrl.test -test.v -test.run TestClientIntegration
+      doas bash -c 'WGCTRL_INTEGRATION=yesreallydoit ./wgctrl.test -test.v -test.run TestIntegration'

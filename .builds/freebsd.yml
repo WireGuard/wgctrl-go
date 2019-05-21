@@ -5,7 +5,6 @@ sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
-  WGCTRL_INTEGRATION: "yesreallydoit"
 tasks:
   - setup-wireguard: |
       ./wgctrl-go/.cibuild.sh
@@ -19,7 +18,7 @@ tasks:
       /home/build/go/bin/staticcheck ./...
       /home/build/go/bin/golint -set_exit_status ./...
       go test -v -race ./...
-      go test -c -race -tags=integration .
+      go test -c -race .
       # Use wireguard-go for additional testing.
       sudo /home/build/go/bin/wireguard-go wguser0
-      sudo ./wgctrl.test -test.v -test.run TestClientIntegration
+      sudo WGCTRL_INTEGRATION=yesreallydoit ./wgctrl.test -test.v -test.run TestIntegration

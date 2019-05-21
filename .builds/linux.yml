@@ -3,7 +3,6 @@ sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
-  WGCTRL_INTEGRATION: "yesreallydoit"
 tasks:
   - install-go: |
       wget -q https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
@@ -24,7 +23,7 @@ tasks:
       # 32-bit sanity checking for different kernel structure sizes from
       # wireguard genetlink.
       GOARCH=386 go test -v ./internal/wglinux/...
-      go test -c -race -tags=integration .
+      go test -c -race .
       # Allow the use of wireguard-go for additional testing.
       sudo WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD=1 /home/build/go/bin/wireguard-go wguser0
-      sudo ./wgctrl.test -test.v -test.run TestClientIntegration
+      sudo WGCTRL_INTEGRATION=yesreallydoit ./wgctrl.test -test.v -test.run TestIntegration
