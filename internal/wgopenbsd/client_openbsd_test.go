@@ -156,6 +156,7 @@ func TestClientDeviceBasic(t *testing.T) {
 				// Workaround for native vs big endianness.
 				Port: uint16(bePort(1024)),
 			}))
+			wgp.Pka = 60
 			wgp.Last_handshake = wgh.Timespec{
 				Sec:  1,
 				Nsec: 2,
@@ -176,12 +177,13 @@ func TestClientDeviceBasic(t *testing.T) {
 		PublicKey:  pub,
 		ListenPort: 8080,
 		Peers: []wgtypes.Peer{{
-			PublicKey:         peer,
-			PresharedKey:      psk,
-			Endpoint:          wgtest.MustUDPAddr("[fd00::1]:1024"),
-			ReceiveBytes:      2,
-			TransmitBytes:     1,
-			LastHandshakeTime: time.Unix(1, 2),
+			PublicKey:                   peer,
+			PresharedKey:                psk,
+			Endpoint:                    wgtest.MustUDPAddr("[fd00::1]:1024"),
+			PersistentKeepaliveInterval: 60 * time.Second,
+			ReceiveBytes:                2,
+			TransmitBytes:               1,
+			LastHandshakeTime:           time.Unix(1, 2),
 			AllowedIPs: []net.IPNet{
 				wgtest.MustCIDR("192.168.1.0/24"),
 				wgtest.MustCIDR("fd00::/64"),

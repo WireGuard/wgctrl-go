@@ -265,9 +265,10 @@ func (c *Client) getPeer(device string, pubkey wgtypes.Key) (*wgtypes.Peer, erro
 	}
 
 	return &wgtypes.Peer{
-		PublicKey:    pubkey,
-		PresharedKey: wgp.Psk,
-		Endpoint:     endpoint,
+		PublicKey:                   pubkey,
+		PresharedKey:                wgp.Psk,
+		Endpoint:                    endpoint,
+		PersistentKeepaliveInterval: time.Duration(wgp.Pka) * time.Second,
 		LastHandshakeTime: time.Unix(
 			wgp.Last_handshake.Sec,
 			// Conversion required on openbsd/386.

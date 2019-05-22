@@ -9,7 +9,7 @@ package wgh
 #include <netinet/in.h>
 #include <sys/sockio.h>
 #include <time.h>
-#include "if_wg.h"
+#include <net/if_wg.h>
 
 // This is a copy of ifgroupreq but the union's *ifg_req variant is broken out
 // into an explicit field, and the other variant is omitted and replaced with

@@ -30,7 +30,7 @@ type Timespec struct {
 
 const (
 	SIOCGWGSERV = 0xc06869c8
-	SIOCGWGPEER = 0xc0a069c9
+	SIOCGWGPEER = 0xc0a869c9
 
 	SizeofWGIP = 0x1c
 
@@ -54,6 +54,8 @@ type WGGetPeer struct {
 	Psk            [32]byte
 	Tx_bytes       uint64
 	Rx_bytes       uint64
+	Pka            uint16
+	Pad_cgo_0      [2]byte
 	Ip             [28]byte
 	State          uint32
 	Last_handshake Timespec
