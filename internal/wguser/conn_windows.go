@@ -183,7 +183,11 @@ func findNamedPipes(search string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer windows.Close(h)
+
+	// FindClose is used to close file search handles instead of the typical
+	// CloseHandle used elsewhere, see:
+	// https://docs.microsoft.com/en-us/windows/desktop/api/fileapi/nf-fileapi-findclose.
+	defer windows.FindClose(h)
 
 	// Check the first file's name for a match, but also keep searching for
 	// WireGuard named pipes until no more files can be iterated.
