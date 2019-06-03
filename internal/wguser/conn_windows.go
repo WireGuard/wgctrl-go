@@ -5,6 +5,7 @@ package wguser
 import (
 	"errors"
 	"net"
+	"os"
 	"runtime"
 	"strings"
 	"unsafe"
@@ -70,20 +71,20 @@ func dial(device string) (net.Conn, error) {
 	}
 	defer windows.CloseHandle(thread)
 
-	var threadToken windows.Token
+	var tok windows.Token
 	err = windows.OpenThreadToken(
 		thread,
 		windows.TOKEN_ADJUST_PRIVILEGES,
 		false,
-		&threadToken,
+		&tok,
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer threadToken.Close()
+	defer tok.Close()
 
 	err = windows.AdjustTokenPrivileges(
-		threadToken,
+		tok,
 		false,
 		&privileges,
 		uint32(unsafe.Sizeof(privileges)),
@@ -100,60 +101,85 @@ func dial(device string) (net.Conn, error) {
 	}
 	defer windows.CloseHandle(processes)
 
-	processEntry := windows.ProcessEntry32{
+	e := windows.ProcessEntry32{
 		Size: uint32(unsafe.Sizeof(windows.ProcessEntry32{})),
 	}
-	var pid uint32
-	for err = windows.Process32First(processes, &processEntry); err == nil; err = windows.Process32Next(processes, &processEntry) {
-		if strings.ToLower(windows.UTF16ToString(processEntry.ExeFile[:])) == "winlogon.exe" {
-			pid = processEntry.ProcessID
-			break
+
+	// Iterate the process list looking for any processes named winlogon.exe.
+	//
+	// It is possible for an attacker to attempt a denial of service of this
+	// application by creating bogus processes with that name, so we must
+	// attempt dialing a connection for each matching process until we either
+	// succeed or run out of processes to try.
+	//
+	// It is unlikely that an attacker's process could appear before the true
+	// winlogon.exe in this list, but better safe than sorry.
+	for err := windows.Process32First(processes, &e); ; err = windows.Process32Next(processes, &e) {
+		// Handle any errors from process list iteration.
+		switch err {
+		case nil:
+			// Keep iterating processes.
+		case windows.ERROR_NO_MORE_FILES:
+			// No more files to check.
+			return nil, errors.New("wguser: unable to find suitable winlogon.exe process to communicate with WireGuard")
+		default:
+			return nil, err
+		}
+
+		if strings.ToLower(windows.UTF16ToString(e.ExeFile[:])) != "winlogon.exe" {
+			continue
+		}
+
+		// Can we communicate with the device by impersonating this process?
+		c, err := tryDial(device, e.ProcessID)
+		switch {
+		case err == nil:
+			// Success, use this connection.
+			return c, nil
+		case os.IsPermission(err):
+			// We found a process named winlogon.exe that doesn't have permission
+			// to open a handle to the WireGuard device. Skip it and keep trying.
+		default:
+			return nil, err
 		}
 	}
+}
+
+// tryDial attempts to impersonate the security token of pid to dial device.
+// tryDial _must_ only be invoked by dial.
+func tryDial(device string, pid uint32) (net.Conn, error) {
+	proc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, pid)
 	if err != nil {
 		return nil, err
 	}
-	if pid == 0 {
-		return nil, errors.New("wguser: unable to find winlogon.exe process")
-	}
+	defer windows.CloseHandle(proc)
 
-	winlogonProcess, err := windows.OpenProcess(
-		windows.PROCESS_QUERY_INFORMATION,
-		false,
-		pid,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer windows.CloseHandle(winlogonProcess)
-
-	var winlogonToken windows.Token
+	var tok windows.Token
 	err = windows.OpenProcessToken(
-		winlogonProcess,
+		proc,
 		windows.TOKEN_IMPERSONATE|windows.TOKEN_DUPLICATE,
-		&winlogonToken,
+		&tok,
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer winlogonToken.Close()
+	defer tok.Close()
 
-	var duplicatedToken windows.Token
+	var dup windows.Token
 	err = windows.DuplicateTokenEx(
-		winlogonToken,
+		tok,
 		0,
 		nil,
 		windows.SecurityImpersonation,
 		windows.TokenImpersonation,
-		&duplicatedToken,
+		&dup,
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer duplicatedToken.Close()
+	defer dup.Close()
 
-	err = windows.SetThreadToken(nil, duplicatedToken)
-	if err != nil {
+	if err := windows.SetThreadToken(nil, dup); err != nil {
 		return nil, err
 	}
 
