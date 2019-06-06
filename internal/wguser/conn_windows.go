@@ -61,40 +61,6 @@ func dial(device string) (net.Conn, error) {
 		return nil, err
 	}
 
-	if err := windows.ImpersonateSelf(windows.SecurityImpersonation); err != nil {
-		return nil, err
-	}
-
-	thread, err := windows.GetCurrentThread()
-	if err != nil {
-		return nil, err
-	}
-	defer windows.CloseHandle(thread)
-
-	var tok windows.Token
-	err = windows.OpenThreadToken(
-		thread,
-		windows.TOKEN_ADJUST_PRIVILEGES,
-		false,
-		&tok,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer tok.Close()
-
-	err = windows.AdjustTokenPrivileges(
-		tok,
-		false,
-		&privileges,
-		uint32(unsafe.Sizeof(privileges)),
-		nil,
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	processes, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
 		return nil, err
@@ -131,7 +97,7 @@ func dial(device string) (net.Conn, error) {
 		}
 
 		// Can we communicate with the device by impersonating this process?
-		c, err := tryDial(device, e.ProcessID)
+		c, err := tryDial(device, e.ProcessID, privileges)
 		switch {
 		case err == nil:
 			// Success, use this connection.
@@ -147,27 +113,67 @@ func dial(device string) (net.Conn, error) {
 
 // tryDial attempts to impersonate the security token of pid to dial device.
 // tryDial _must_ only be invoked by dial.
-func tryDial(device string, pid uint32) (net.Conn, error) {
+func tryDial(device string, pid uint32, privileges windows.Tokenprivileges) (net.Conn, error) {
+	// Revert to normal thread state before attempting any further manipulation.
+	// See comment in dial about the panic.
+	if err := windows.RevertToSelf(); err != nil {
+		panicf("wguser: failed to terminate token impersonation, panicking per Microsoft recommendation: %v", err)
+	}
+
+	if err := windows.ImpersonateSelf(windows.SecurityImpersonation); err != nil {
+		return nil, err
+	}
+
+	thread, err := windows.GetCurrentThread()
+	if err != nil {
+		return nil, err
+	}
+	defer windows.CloseHandle(thread)
+
+	var ttok windows.Token
+	err = windows.OpenThreadToken(
+		thread,
+		windows.TOKEN_ADJUST_PRIVILEGES,
+		false,
+		&ttok,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer ttok.Close()
+
+	err = windows.AdjustTokenPrivileges(
+		ttok,
+		false,
+		&privileges,
+		uint32(unsafe.Sizeof(privileges)),
+		nil,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	proc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, pid)
 	if err != nil {
 		return nil, err
 	}
 	defer windows.CloseHandle(proc)
 
-	var tok windows.Token
+	var ptok windows.Token
 	err = windows.OpenProcessToken(
 		proc,
 		windows.TOKEN_IMPERSONATE|windows.TOKEN_DUPLICATE,
-		&tok,
+		&ptok,
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer tok.Close()
+	defer ptok.Close()
 
 	var dup windows.Token
 	err = windows.DuplicateTokenEx(
-		tok,
+		ptok,
 		0,
 		nil,
 		windows.SecurityImpersonation,
