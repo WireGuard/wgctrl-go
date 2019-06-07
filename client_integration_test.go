@@ -63,7 +63,7 @@ func TestIntegrationClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Panic if a specific test takes too long.
-			timer := time.AfterFunc(20*time.Second, func() {
+			timer := time.AfterFunc(1*time.Minute, func() {
 				panic("test took too long")
 			})
 			defer timer.Stop()
