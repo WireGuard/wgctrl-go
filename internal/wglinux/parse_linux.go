@@ -20,6 +20,8 @@ import (
 // from the first message.
 func parseDevice(msgs []genetlink.Message) (*wgtypes.Device, error) {
 	var first wgtypes.Device
+	knownPeers := make(map[wgtypes.Key]int)
+
 	for i, m := range msgs {
 		d, err := parseDeviceLoop(m)
 		if err != nil {
@@ -29,14 +31,19 @@ func parseDevice(msgs []genetlink.Message) (*wgtypes.Device, error) {
 		if i == 0 {
 			// First message contains our target device.
 			first = *d
+
+			// Gather the known peers so that we can merge
+			// them later if needed
+			for i := range first.Peers {
+				knownPeers[first.Peers[i].PublicKey] = i
+			}
+
 			continue
 		}
 
 		// Any subsequent messages have their peer contents merged into the
 		// first "target" message.
-		if err := mergeDevices(&first, d); err != nil {
-			return nil, err
-		}
+		mergeDevices(&first, d, knownPeers)
 	}
 
 	return &first, nil
@@ -321,46 +328,14 @@ func parseTimespec(t *time.Time) func(b []byte) error {
 
 // mergeDevices merges Peer information from d into target.  mergeDevices is
 // used to deal with multiple incoming netlink messages for the same device.
-func mergeDevices(target, d *wgtypes.Device) error {
-	// Peers we are aware already exist in target.
-	known := make(map[wgtypes.Key]struct{})
-	for _, p := range target.Peers {
-		known[p.PublicKey] = struct{}{}
-	}
-
-	// Peers which will be added to target if new peers are discovered.
-	var peers []wgtypes.Peer
-
-	for j := range target.Peers {
-		// Allowed IPs that will be added to target for matching peers.
-		var ipns []net.IPNet
-
-		for k := range d.Peers {
-			// Does this peer match the current peer?  If so, append its allowed
-			// IP networks.
-			if target.Peers[j].PublicKey == d.Peers[k].PublicKey {
-				ipns = append(ipns, d.Peers[k].AllowedIPs...)
-				continue
-			}
-
-			// Are we already aware of this peer's existence?  If so, nothing to
-			// do here.
-			if _, ok := known[d.Peers[k].PublicKey]; ok {
-				continue
-			}
-
-			// Found a new peer, append it to the output list and mark it as
-			// known for future loops.
-			peers = append(peers, d.Peers[k])
-			known[d.Peers[k].PublicKey] = struct{}{}
+func mergeDevices(target, d *wgtypes.Device, knownPeers map[wgtypes.Key]int) {
+	for i := range d.Peers {
+		// Peer is already known, append to it's allowed IP networks
+		if peerIndex, ok := knownPeers[d.Peers[i].PublicKey]; ok {
+			target.Peers[peerIndex].AllowedIPs = append(target.Peers[peerIndex].AllowedIPs, d.Peers[i].AllowedIPs...)
+		} else { // New peer, add it to the target peers.
+			target.Peers = append(target.Peers, d.Peers[i])
+			knownPeers[d.Peers[i].PublicKey] = len(target.Peers) - 1
 		}
-
-		// Add any newly-encountered IPs for this peer.
-		target.Peers[j].AllowedIPs = append(target.Peers[j].AllowedIPs, ipns...)
 	}
-
-	// Add any newly-encountered peers for this device.
-	target.Peers = append(target.Peers, peers...)
-
-	return nil
 }
