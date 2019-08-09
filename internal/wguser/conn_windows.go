@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unsafe"
 
-	winio "github.com/microsoft/go-winio"
+	winio "github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows"
 )
 
