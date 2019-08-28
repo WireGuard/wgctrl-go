@@ -23,7 +23,7 @@ func newClients() ([]wginternal.Client, error) {
 	// Make the user opt in explicitly for kernel implementation support.
 	if useKernel {
 		// OpenBSD has an experimental in-kernel WireGuard implementation:
-		// https://git.noconroy.net/wireguard-bsd.git. Determine if it is
+		// https://git.zx2c4.com/wireguard-openbsd/about/. Determine if it is
 		// available and make use of it if so.
 		kc, ok, err := wgopenbsd.New()
 		if err != nil {
