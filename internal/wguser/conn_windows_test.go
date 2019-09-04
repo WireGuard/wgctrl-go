@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	winio "github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows/registry"
+	"golang.zx2c4.com/wireguard/ipc/winpipe"
 )
 
 // isWINE determines if this test is running in WINE.
@@ -52,7 +52,7 @@ func testListen(t *testing.T, device string) (l net.Listener, dir string, done f
 	// Attempt to create a unique name and avoid collisions.
 	dir = fmt.Sprintf(`wguser-test%d\`, time.Now().Nanosecond())
 
-	l, err := winio.ListenPipe(pipePrefix+dir+device, nil)
+	l, err := winpipe.ListenPipe(pipePrefix+dir+device, nil)
 	if err != nil {
 		t.Fatalf("failed to create Windows named pipe: %v", err)
 	}

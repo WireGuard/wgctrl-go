@@ -8,10 +8,11 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"syscall"
 	"unsafe"
 
-	winio "github.com/Microsoft/go-winio"
 	"golang.org/x/sys/windows"
+	"golang.zx2c4.com/wireguard/ipc/winpipe"
 )
 
 // Expected prefixes when dealing with named pipes.
@@ -189,7 +190,12 @@ func tryDial(device string, pid uint32, privileges windows.Tokenprivileges) (net
 		return nil, err
 	}
 
-	return winio.DialPipe(device, nil)
+	localSystem, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
+	if err != nil {
+		return nil, err
+	}
+
+	return winpipe.DialPipe(device, nil, (*syscall.SID)(localSystem))
 }
 
 // find is the default implementation of Client.find.
