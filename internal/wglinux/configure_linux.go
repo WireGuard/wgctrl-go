@@ -45,14 +45,14 @@ func configAttrs(name string, cfg wgtypes.Config) ([]byte, error) {
 	for i, p := range cfg.Peers {
 		havePeers = true
 		// Netlink arrays use type as an array index.
-		pae.Do(uint16(i), func() ([]byte, error) {
+		pae.Do(unix.NLA_F_NESTED|uint16(i), func() ([]byte, error) {
 			return peerBytes(p)
 		})
 	}
 
 	// Only apply peer attributes if necessary.
 	if havePeers {
-		ae.Do(wgh.DeviceAPeers, pae.Encode)
+		ae.Do(unix.NLA_F_NESTED|wgh.DeviceAPeers, pae.Encode)
 	}
 
 	return ae.Encode()
@@ -204,7 +204,7 @@ func peerBytes(p wgtypes.PeerConfig) ([]byte, error) {
 
 	// Only apply allowed IPs if necessary.
 	if len(p.AllowedIPs) > 0 {
-		ae.Do(wgh.PeerAAllowedips, func() ([]byte, error) {
+		ae.Do(unix.NLA_F_NESTED|wgh.PeerAAllowedips, func() ([]byte, error) {
 			return allowedIPBytes(p.AllowedIPs)
 		})
 	}
@@ -270,7 +270,7 @@ func allowedIPBytes(ipns []net.IPNet) ([]byte, error) {
 		nae.Uint8(wgh.AllowedipACidrMask, uint8(ones))
 
 		// Netlink arrays use type as an array index.
-		ae.Do(uint16(i), nae.Encode)
+		ae.Do(unix.NLA_F_NESTED|uint16(i), nae.Encode)
 	}
 
 	return ae.Encode()

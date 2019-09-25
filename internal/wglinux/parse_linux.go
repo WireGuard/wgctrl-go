@@ -75,7 +75,8 @@ func parseDeviceLoop(m genetlink.Message) (*wgtypes.Device, error) {
 			d.ListenPort = int(ad.Uint16())
 		case wgh.DeviceAFwmark:
 			d.FirewallMark = int(ad.Uint32())
-		case wgh.DeviceAPeers:
+		// Newer kernels may pass the nested flag.
+		case wgh.DeviceAPeers, unix.NLA_F_NESTED | wgh.DeviceAPeers:
 			ad.Do(func(b []byte) error {
 				peers, err := parsePeers(b)
 				if err != nil {
@@ -142,7 +143,8 @@ func parsePeer(b []byte) (wgtypes.Peer, error) {
 			p.ReceiveBytes = int64(ad.Uint64())
 		case wgh.PeerATxBytes:
 			p.TransmitBytes = int64(ad.Uint64())
-		case wgh.PeerAAllowedips:
+		// Newer kernels may pass the nested flag.
+		case wgh.PeerAAllowedips, unix.NLA_F_NESTED | wgh.PeerAAllowedips:
 			ad.Do(func(b []byte) error {
 				ipns, err := parseAllowedIPs(b)
 				if err != nil {
