@@ -43,6 +43,9 @@ func initClient(c *genetlink.Conn) (*Client, bool, error) {
 	if err != nil {
 		_ = c.Close()
 
+		//lint:ignore SA1019 maintain compatibility with old versions of Go
+		// by using netlink.IsNotExist for now. We can switch to errors.Is at
+		// a later time.
 		if netlink.IsNotExist(err) {
 			// The generic netlink interface is not available.
 			return nil, false, nil
