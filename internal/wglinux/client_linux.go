@@ -157,9 +157,6 @@ func (c *Client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 		return msgs, nil
 	}
 
-	// TODO(mdlayher): should netlink.IsNotExist(ENODEV) == true be added in
-	// package netlink?
-
 	// We don't want to expose netlink errors directly to callers, so unpack
 	// the error for use with os.IsNotExist and similar.
 	oerr, ok := err.(*netlink.OpError)
