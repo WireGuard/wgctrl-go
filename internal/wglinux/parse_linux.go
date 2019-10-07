@@ -75,15 +75,21 @@ func parseDeviceLoop(m genetlink.Message) (*wgtypes.Device, error) {
 			d.ListenPort = int(ad.Uint16())
 		case wgh.DeviceAFwmark:
 			d.FirewallMark = int(ad.Uint32())
-		// Newer kernels may pass the nested flag.
-		case wgh.DeviceAPeers, unix.NLA_F_NESTED | wgh.DeviceAPeers:
-			ad.Do(func(b []byte) error {
-				peers, err := parsePeers(b)
-				if err != nil {
-					return err
+		case wgh.DeviceAPeers:
+			// Netlink array of peers.
+			//
+			// Errors while parsing are propagated up to top-level ad.Err check.
+			ad.Nested(func(nad *netlink.AttributeDecoder) error {
+				// Initialize to the number of peers in this decoder and begin
+				// handling nested Peer attributes.
+				d.Peers = make([]wgtypes.Peer, 0, nad.Len())
+				for nad.Next() {
+					nad.Nested(func(nnad *netlink.AttributeDecoder) error {
+						d.Peers = append(d.Peers, parsePeer(nnad))
+						return nil
+					})
 				}
 
-				d.Peers = peers
 				return nil
 			})
 		}
@@ -96,35 +102,8 @@ func parseDeviceLoop(m genetlink.Message) (*wgtypes.Device, error) {
 	return &d, nil
 }
 
-// parsePeers parses a slice of Peers from a netlink attribute payload.
-func parsePeers(b []byte) ([]wgtypes.Peer, error) {
-	attrs, err := netlink.UnmarshalAttributes(b)
-	if err != nil {
-		return nil, err
-	}
-
-	// This is a netlink "array", so each attribute's data contains more
-	// nested attributes for a new Peer.
-	ps := make([]wgtypes.Peer, 0, len(attrs))
-	for _, a := range attrs {
-		p, err := parsePeer(a.Data)
-		if err != nil {
-			return nil, err
-		}
-
-		ps = append(ps, p)
-	}
-
-	return ps, nil
-}
-
-// parsePeer parses a single Peer from a netlink attribute payload.
-func parsePeer(b []byte) (wgtypes.Peer, error) {
-	ad, err := netlink.NewAttributeDecoder(b)
-	if err != nil {
-		return wgtypes.Peer{}, err
-	}
-
+// parseAllowedIPs parses a wgtypes.Peer from a netlink attribute payload.
+func parsePeer(ad *netlink.AttributeDecoder) wgtypes.Peer {
 	var p wgtypes.Peer
 	for ad.Next() {
 		switch ad.Type() {
@@ -143,15 +122,9 @@ func parsePeer(b []byte) (wgtypes.Peer, error) {
 			p.ReceiveBytes = int64(ad.Uint64())
 		case wgh.PeerATxBytes:
 			p.TransmitBytes = int64(ad.Uint64())
-		// Newer kernels may pass the nested flag.
-		case wgh.PeerAAllowedips, unix.NLA_F_NESTED | wgh.PeerAAllowedips:
-			ad.Do(func(b []byte) error {
-				ipns, err := parseAllowedIPs(b)
-				if err != nil {
-					return err
-				}
-
-				p.AllowedIPs = ipns
+		case wgh.PeerAAllowedips:
+			ad.Nested(func(nad *netlink.AttributeDecoder) error {
+				p.AllowedIPs = parseAllowedIPs(nad)
 				return nil
 			})
 		case wgh.PeerAProtocolVersion:
@@ -159,62 +132,49 @@ func parsePeer(b []byte) (wgtypes.Peer, error) {
 		}
 	}
 
-	if err := ad.Err(); err != nil {
-		return wgtypes.Peer{}, err
-	}
-
-	return p, nil
+	return p
 }
 
 // parseAllowedIPs parses a slice of net.IPNet from a netlink attribute payload.
-func parseAllowedIPs(b []byte) ([]net.IPNet, error) {
-	attrs, err := netlink.UnmarshalAttributes(b)
-	if err != nil {
-		return nil, err
-	}
+func parseAllowedIPs(ad *netlink.AttributeDecoder) []net.IPNet {
+	// Initialize to the number of allowed IPs and begin iterating through
+	// the netlink array to decode each one.
+	ipns := make([]net.IPNet, 0, ad.Len())
+	for ad.Next() {
+		// Allowed IP nested attributes.
+		ad.Nested(func(nad *netlink.AttributeDecoder) error {
+			var (
+				ipn    net.IPNet
+				mask   int
+				family int
+			)
 
-	// This is a netlink "array", so each attribute's data contains more
-	// nested attributes for a new net.IPNet.
-	ipns := make([]net.IPNet, 0, len(attrs))
-	for _, a := range attrs {
-		ad, err := netlink.NewAttributeDecoder(a.Data)
-		if err != nil {
-			return nil, err
-		}
-
-		var (
-			ipn    net.IPNet
-			mask   int
-			family int
-		)
-
-		for ad.Next() {
-			switch ad.Type() {
-			case wgh.AllowedipAIpaddr:
-				ad.Do(parseAddr(&ipn.IP))
-			case wgh.AllowedipACidrMask:
-				mask = int(ad.Uint8())
-			case wgh.AllowedipAFamily:
-				family = int(ad.Uint16())
+			for nad.Next() {
+				switch nad.Type() {
+				case wgh.AllowedipAIpaddr:
+					nad.Do(parseAddr(&ipn.IP))
+				case wgh.AllowedipACidrMask:
+					mask = int(nad.Uint8())
+				case wgh.AllowedipAFamily:
+					family = int(nad.Uint16())
+				}
 			}
-		}
 
-		if err := ad.Err(); err != nil {
-			return nil, err
-		}
+			// The address family determines the correct number of bits in
+			// the mask.
+			switch family {
+			case unix.AF_INET:
+				ipn.Mask = net.CIDRMask(mask, 32)
+			case unix.AF_INET6:
+				ipn.Mask = net.CIDRMask(mask, 128)
+			}
 
-		// The address family determines the correct number of bits in the mask.
-		switch family {
-		case unix.AF_INET:
-			ipn.Mask = net.CIDRMask(mask, 32)
-		case unix.AF_INET6:
-			ipn.Mask = net.CIDRMask(mask, 128)
-		}
-
-		ipns = append(ipns, ipn)
+			ipns = append(ipns, ipn)
+			return nil
+		})
 	}
 
-	return ipns, nil
+	return ipns
 }
 
 // parseKey parses a wgtypes.Key from a byte slice.

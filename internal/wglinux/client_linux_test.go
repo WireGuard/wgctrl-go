@@ -321,9 +321,14 @@ func diffAttrs(x, y []netlink.Attribute) string {
 }
 
 func mustAllowedIPs(ipns []net.IPNet) []byte {
-	b, err := allowedIPBytes(ipns)
-	if err != nil {
+	ae := netlink.NewAttributeEncoder()
+	if err := encodeAllowedIPs(ae, ipns); err != nil {
 		panicf("failed to create allowed IP attributes: %v", err)
+	}
+
+	b, err := ae.Encode()
+	if err != nil {
+		panicf("failed to encode allowed IP attributes: %v", err)
 	}
 
 	return b
