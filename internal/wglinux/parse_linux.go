@@ -200,7 +200,7 @@ func parseAddr(ip *net.IP) func(b []byte) error {
 			copy(*ip, b)
 			return nil
 		default:
-			return fmt.Errorf("wireguardnl: unexpected IP address size: %d", len(b))
+			return fmt.Errorf("wglinux: unexpected IP address size: %d", len(b))
 		}
 	}
 }
@@ -230,7 +230,7 @@ func parseSockaddr(endpoint *net.UDPAddr) func(b []byte) error {
 
 			return nil
 		default:
-			return fmt.Errorf("wireguardnl: unexpected sockaddr size: %d", len(b))
+			return fmt.Errorf("wglinux: unexpected sockaddr size: %d", len(b))
 		}
 	}
 }
@@ -275,7 +275,7 @@ func parseTimespec(t *time.Time) func(b []byte) error {
 			sec = ts.Sec
 			nsec = ts.Nsec
 		default:
-			return fmt.Errorf("wireguardnl: unexpected timespec size: %d bytes, expected 8 or 16 bytes", len(b))
+			return fmt.Errorf("wglinux: unexpected timespec size: %d bytes, expected 8 or 16 bytes", len(b))
 		}
 
 		// Only set fields if UNIX timestamp value is greater than 0, so the
