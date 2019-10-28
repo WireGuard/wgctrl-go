@@ -78,6 +78,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 					},
 					{
 						PublicKey:                   wgtest.MustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
+						UpdateOnly:                  true,
 						Endpoint:                    wgtest.MustUDPAddr("182.122.22.19:3233"),
 						PersistentKeepaliveInterval: durPtr(111 * time.Second),
 						ReplaceAllowedIPs:           true,
@@ -166,7 +167,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								},
 								{
 									Type: wgh.PeerAFlags,
-									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
 								},
 								{
 									Type: wgh.PeerAEndpoint,
@@ -296,16 +297,20 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		Peers: []wgtypes.PeerConfig{
 			{
 				PublicKey:         peerA,
+				UpdateOnly:        true,
 				ReplaceAllowedIPs: true,
-				AllowedIPs:        peerAIPs,
+
+				AllowedIPs: peerAIPs,
 			},
 			{
 				PublicKey:         peerB,
+				UpdateOnly:        true,
 				ReplaceAllowedIPs: true,
 				AllowedIPs:        peerBIPs,
 			},
 			{
 				PublicKey:         peerC,
+				UpdateOnly:        true,
 				ReplaceAllowedIPs: true,
 				AllowedIPs:        peerCIPs,
 			},
@@ -355,7 +360,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 						},
 						{
 							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
 						},
 						{
 							Type: netlink.Nested | wgh.PeerAAllowedips,
@@ -376,6 +381,10 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 						{
 							Type: wgh.PeerAPublicKey,
 							Data: peerA[:],
+						},
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
 						},
 						// Not first chunk; don't replace IPs.
 						{
@@ -401,7 +410,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 						},
 						{
 							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
 						},
 						{
 							Type: netlink.Nested | wgh.PeerAAllowedips,
@@ -426,7 +435,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 						},
 						{
 							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
 						},
 						{
 							Type: netlink.Nested | wgh.PeerAAllowedips,
@@ -448,6 +457,10 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 							Type: wgh.PeerAPublicKey,
 							Data: peerC[:],
 						},
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+						},
 						// Not first chunk; don't replace IPs.
 						{
 							Type: netlink.Nested | wgh.PeerAAllowedips,
@@ -468,6 +481,10 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 						{
 							Type: wgh.PeerAPublicKey,
 							Data: peerC[:],
+						},
+						{
+							Type: wgh.PeerAFlags,
+							Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
 						},
 						// Not first chunk; don't replace IPs.
 						{
