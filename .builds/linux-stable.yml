@@ -5,8 +5,8 @@ environment:
   GO111MODULE: "on"
 tasks:
   - install-go: |
-      wget -q https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
-      sudo tar -C /usr/local -xzf go1.12.5.linux-amd64.tar.gz
+      wget -q https://dl.google.com/go/go1.13.3.linux-amd64.tar.gz
+      sudo tar -C /usr/local -xzf go1.13.3.linux-amd64.tar.gz
       sudo ln -s /usr/local/go/bin/go /usr/bin/go
   - setup-wireguard: |
       ./wgctrl-go/.cibuild.sh
