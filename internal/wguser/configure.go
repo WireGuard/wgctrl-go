@@ -64,14 +64,18 @@ func writeConfig(w io.Writer, cfg wgtypes.Config) {
 	}
 
 	if cfg.ReplacePeers {
-		fmt.Fprintf(w, "replace_peers=true\n")
+		fmt.Fprintln(w, "replace_peers=true")
 	}
 
 	for _, p := range cfg.Peers {
 		fmt.Fprintf(w, "public_key=%s\n", hexKey(p.PublicKey))
 
 		if p.Remove {
-			fmt.Fprintf(w, "remove=true\n")
+			fmt.Fprintln(w, "remove=true")
+		}
+
+		if p.UpdateOnly {
+			fmt.Fprintln(w, "update_only=true")
 		}
 
 		if p.PresharedKey != nil {
@@ -87,7 +91,7 @@ func writeConfig(w io.Writer, cfg wgtypes.Config) {
 		}
 
 		if p.ReplaceAllowedIPs {
-			fmt.Fprintf(w, "replace_allowed_ips=true\n")
+			fmt.Fprintln(w, "replace_allowed_ips=true")
 		}
 
 		for _, ip := range p.AllowedIPs {

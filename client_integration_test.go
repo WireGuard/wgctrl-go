@@ -49,6 +49,10 @@ func TestIntegrationClient(t *testing.T) {
 			fn:   testConfigureManyPeers,
 		},
 		{
+			name: "configure peers update only",
+			fn:   testConfigurePeersUpdateOnly,
+		},
+		{
 			name: "reset",
 			fn: func(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 				// Reset device several times; this used to cause a hang in
@@ -313,6 +317,61 @@ func testConfigureManyPeers(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 	}
 
 	t.Logf("device: %s: %d peers, %d IPs", d.Name, len(dn.Peers), countIPs)
+}
+
+func testConfigurePeersUpdateOnly(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
+	var (
+		peerA = wgtest.MustPublicKey()
+		peerB = wgtest.MustPublicKey()
+		psk   = wgtest.MustPresharedKey()
+	)
+
+	// Create an initial peer configuration.
+	cfg := wgtypes.Config{
+		Peers: []wgtypes.PeerConfig{{
+			PublicKey: peerA,
+		}},
+	}
+
+	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+		t.Fatalf("failed to configure first time on %q: %v", d.Name, err)
+	}
+
+	// Create an updated configuration that should only apply to the existing
+	// peer due to update only flags.
+	cfg = wgtypes.Config{
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey:    peerA,
+				UpdateOnly:   true,
+				PresharedKey: &psk,
+			},
+			{
+				PublicKey:    peerB,
+				UpdateOnly:   true,
+				PresharedKey: &psk,
+			},
+		},
+	}
+
+	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+		t.Fatalf("failed to configure second time on %q: %v", d.Name, err)
+	}
+
+	dn, err := c.Device(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get updated device: %v", err)
+	}
+
+	want := []wgtypes.Peer{{
+		PublicKey:       peerA,
+		PresharedKey:    psk,
+		ProtocolVersion: 1,
+	}}
+
+	if diff := cmp.Diff(want, dn.Peers); diff != "" {
+		t.Fatalf("unexpected configured peers (-want +got):\n%s", diff)
+	}
 }
 
 func resetDevice(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {

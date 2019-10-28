@@ -241,6 +241,10 @@ type PeerConfig struct {
 	// from a device's peer list.
 	Remove bool
 
+	// UpdateOnly specifies that an operation will only occur on this peer
+	// if the peer already exists as part of the interface.
+	UpdateOnly bool
+
 	// PresharedKey specifies a peer's preshared key configuration, if not nil.
 	//
 	// A non-nil, zero-value Key will clear the preshared key.

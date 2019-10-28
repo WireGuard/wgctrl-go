@@ -130,6 +130,11 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 				// PublicKey denotes the peer and must be present.
 				PublicKey: p.PublicKey,
 
+				// Apply the update only flag to every chunk to ensure
+				// consistency between batches when the kernel module processes
+				// them.
+				UpdateOnly: p.UpdateOnly,
+
 				// It'd be a bit weird to have a remove peer message with many
 				// IPs, but just in case, add this to every peer's message.
 				Remove: p.Remove,
@@ -179,6 +184,9 @@ func encodePeer(ae *netlink.AttributeEncoder, p wgtypes.PeerConfig) error {
 	}
 	if p.ReplaceAllowedIPs {
 		flags |= wgh.PeerFReplaceAllowedips
+	}
+	if p.UpdateOnly {
+		flags |= wgh.PeerFUpdateOnly
 	}
 	if flags != 0 {
 		ae.Uint32(wgh.PeerAFlags, flags)
