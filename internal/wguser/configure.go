@@ -74,6 +74,10 @@ func writeConfig(w io.Writer, cfg wgtypes.Config) {
 			fmt.Fprintf(w, "remove=true\n")
 		}
 
+		if p.UpdateOnly {
+			fmt.Fprintf(w, "update_only=true\n")
+		}
+
 		if p.PresharedKey != nil {
 			fmt.Fprintf(w, "preshared_key=%s\n", hexKey(*p.PresharedKey))
 		}

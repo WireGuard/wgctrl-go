@@ -23,6 +23,7 @@ endpoint=[abcd:23::33%2]:51820
 replace_allowed_ips=true
 allowed_ip=192.168.4.4/32
 public_key=58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376
+update_only=true
 endpoint=182.122.22.19:3233
 persistent_keepalive_interval=111
 replace_allowed_ips=true
@@ -113,6 +114,7 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 					},
 					{
 						PublicKey:                   wgtest.MustHexKey("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
+						UpdateOnly:                  true,
 						Endpoint:                    wgtest.MustUDPAddr("182.122.22.19:3233"),
 						PersistentKeepaliveInterval: durPtr(111 * time.Second),
 						ReplaceAllowedIPs:           true,
