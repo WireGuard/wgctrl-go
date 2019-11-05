@@ -60,13 +60,18 @@ func matchKeyValuePair(s string) (pair, bool) {
 	return pair{key: key, value: value}, true
 }
 
-func LoadConfig(in io.Reader) (*wgtypes.Config, error) {
+// ParseConfig parse configuration file from given reader
+// the configuration file format is specified by
+// https://git.zx2c4.com/WireGuard/about/src/tools/man/wg.8
+// and the configuration protocol is specified by
+// https://www.wireguard.com/xplatform/
+func ParseConfig(in io.Reader) (*wgtypes.Config, error) {
 	sc := bufio.NewScanner(in)
-	var cfg *wgtypes.Config = nil
+	var cfg *wgtypes.Config
 	peers := make([]wgtypes.PeerConfig, 0, 10)
 
 	currentSec := sectionEmpty
-	var currentPeerConfig *wgtypes.PeerConfig = nil
+	var currentPeerConfig *wgtypes.PeerConfig
 
 	for lineNum := 0; sc.Scan(); lineNum++ {
 		line := sc.Text()
@@ -132,7 +137,20 @@ func parseInterfaceField(cfg *wgtypes.Config, p pair) *parseError {
 		}
 		cfg.ListenPort = &port
 	case "FwMark":
-		return &parseError{message: "FwMark is not supported"}
+		value := strings.ToLower(p.value)
+		base := 10
+		if strings.HasPrefix(value, "0x") {
+			value = value[2:]
+			base = 16
+		}
+		fwmark, err := strconv.ParseInt(value, base, 32)
+		if err != nil {
+			return &parseError{message: err.Error()}
+		}
+		if fwmark != 0 {
+			fwmarkInt := int(fwmark)
+			cfg.FirewallMark = &fwmarkInt
+		}
 	default:
 		return &parseError{message: fmt.Sprintf("invalid key %s for Interface section", p.key)}
 	}

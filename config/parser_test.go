@@ -2,9 +2,10 @@ package config
 
 import (
 	"bytes"
-	"github.com/stretchr/testify/assert"
 	"net"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -14,6 +15,7 @@ func newSource() *bytes.Buffer {
 [Interface]
 ListenPort = 51820
 PrivateKey = XbHLxgz75/yVgxeQoTegSTQlrpWObIcnqlAWzawY3SI=
+FwMark = 10
 
 [Peer]
 # foo
@@ -30,13 +32,15 @@ PublicKey = z+H+iGabx7HcDfL+vh6DD/ARlY0CgFe7rC+lu/9fC9w=
 }
 
 func TestLoadConfig(t *testing.T) {
-	cfg, err := LoadConfig(newSource())
+	cfg, err := ParseConfig(newSource())
 	assert.NoError(t, err)
 	assert.Equal(t, 51820, *cfg.ListenPort)
 	key, err := wgtypes.ParseKey("XbHLxgz75/yVgxeQoTegSTQlrpWObIcnqlAWzawY3SI=")
 	assert.NoError(t, err)
 	assert.Equal(t, key, *cfg.PrivateKey)
+	assert.Equal(t, 10, *cfg.FirewallMark)
 	assert.Equal(t, 2, len(cfg.Peers))
+
 	peer0 := cfg.Peers[0]
 	assert.Equal(t, net.ParseIP("192.168.0.100"), peer0.Endpoint.IP)
 	assert.Equal(t, 7777, peer0.Endpoint.Port)

@@ -1,93 +1,145 @@
-// Command wgctrl is a testing utility for interacting with WireGuard via package
-// wgctrl.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
-	"net"
+	"os"
 	"strings"
+	"text/template"
+	"time"
+
+	"github.com/alecthomas/kingpin"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
+	"golang.zx2c4.com/wireguard/wgctrl/config"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func main() {
-	flag.Parse()
+	rootCmd := newCommandLine()
+	getCmd, getOpt := newGetCommand(rootCmd)
+	setCmd, setOpt := newSetCommand(rootCmd)
+	switch kingpin.MustParse(rootCmd.Parse(os.Args[1:])) {
+	case getCmd.FullCommand():
+		getConfig(*getOpt)
+	case setCmd.FullCommand():
+		setConfig(*setOpt)
+	}
+}
 
-	c, err := wgctrl.New()
+func newCommandLine() *kingpin.Application {
+	return kingpin.New("wgconf", "wireguard configuring tool")
+}
+
+type getOption struct {
+	Interface      string
+	ShowCredential bool
+}
+
+type setOption struct {
+	Interface string
+	Config    string
+}
+
+func newGetCommand(root *kingpin.Application) (*kingpin.CmdClause, *getOption) {
+	opt := getOption{}
+	cmd := root.Command("get", "get wireguard configuration")
+	cmd.Flag("interface", "interface to show").StringVar(&opt.Interface)
+	cmd.Flag("show-credential", "show credentials for interface").BoolVar(&opt.ShowCredential)
+	return cmd, &opt
+}
+
+func newSetCommand(root *kingpin.Application) (*kingpin.CmdClause, *setOption) {
+	opt := setOption{}
+	cmd := root.Command("set", "set wireguard configuration")
+	cmd.Flag("interface", "interface to set").StringVar(&opt.Interface)
+	cmd.Flag("config", "configuration file").StringVar(&opt.Config)
+	return cmd, &opt
+}
+
+func checkError(err error) {
 	if err != nil {
-		log.Fatalf("failed to open wgctrl: %v", err)
-	}
-	defer c.Close()
-
-	var devices []*wgtypes.Device
-	if device := flag.Arg(0); device != "" {
-		d, err := c.Device(device)
-		if err != nil {
-			log.Fatalf("failed to get device %q: %v", device, err)
-		}
-
-		devices = append(devices, d)
-	} else {
-		devices, err = c.Devices()
-		if err != nil {
-			log.Fatalf("failed to get devices: %v", err)
-		}
-	}
-
-	for _, d := range devices {
-		printDevice(d)
-
-		for _, p := range d.Peers {
-			printPeer(p)
-		}
+		log.Fatalln(err)
 	}
 }
 
-func printDevice(d *wgtypes.Device) {
-	const f = `interface: %s (%s)
-  public key: %s
-  private key: (hidden)
-  listening port: %d
+func getConfig(opt getOption) {
 
+	client, err := wgctrl.New()
+	checkError(err)
+	dev, err := client.Device(opt.Interface)
+	checkError(err)
+	fmt.Printf("Interface: %s (%s)\n", opt.Interface, dev.Type.String())
+	fmt.Printf("  public key: %s\n", dev.PublicKey.String())
+	privkeyStr := "(hidden)"
+	if opt.ShowCredential {
+		privkeyStr = dev.PrivateKey.String()
+	}
+	fmt.Printf("  private key: %s\n", privkeyStr)
+	fmt.Printf("  listening port: %d\n", dev.ListenPort)
+	for _, peer := range dev.Peers {
+		printPeer(peer, opt.ShowCredential)
+	}
+}
+
+func setConfig(opt setOption) {
+	fin, err := os.Open(opt.Config)
+	checkError(err)
+	defer fin.Close()
+	cfg, err := config.ParseConfig(fin)
+	checkError(err)
+	client, err := wgctrl.New()
+	checkError(err)
+	err = client.ConfigureDevice(opt.Interface, *cfg)
+	checkError(err)
+	log.Printf("interface %s configured.\n", opt.Interface)
+}
+
+func printPeer(peer wgtypes.Peer, showCredential bool) {
+	const tmpl = `
+peer: {{ .PublicKey }}
+  preshared key = {{ .PresharedKey }}
+  endpoint = {{ .Endpoint }}
+  keep alive interval = {{ .KeepAliveInterval }}s
+  last handshake time = {{ .LastHandshakeTime }}
+  receive bytes = {{ .ReceiveBytes }}
+  transmit bytes = {{ .TransmitBytes }}
+  allowed ips = {{ .AllowedIPs }}
+  protocol version = {{ .ProtocolVersion }} 
 `
 
-	fmt.Printf(
-		f,
-		d.Name,
-		d.Type.String(),
-		d.PublicKey.String(),
-		d.ListenPort)
-}
-
-func printPeer(p wgtypes.Peer) {
-	const f = `peer: %s
-  endpoint: %s
-  allowed ips: %s
-  latest handshake: %s
-  transfer: %d B received, %d B sent
-
-`
-
-	fmt.Printf(
-		f,
-		p.PublicKey.String(),
-		// TODO(mdlayher): get right endpoint with getnameinfo.
-		p.Endpoint.String(),
-		ipsString(p.AllowedIPs),
-		p.LastHandshakeTime.String(),
-		p.ReceiveBytes,
-		p.TransmitBytes,
-	)
-}
-
-func ipsString(ipns []net.IPNet) string {
-	ss := make([]string, 0, len(ipns))
-	for _, ipn := range ipns {
-		ss = append(ss, ipn.String())
+	type tmplContent struct {
+		PublicKey         string
+		PresharedKey      string
+		Endpoint          string
+		KeepAliveInterval float64
+		LastHandshakeTime string
+		ReceiveBytes      int64
+		TransmitBytes     int64
+		AllowedIPs        string
+		ProtocolVersion   int
 	}
 
-	return strings.Join(ss, ", ")
+	t := template.Must(template.New("peer_tmpl").Parse(tmpl))
+	c := tmplContent{
+		PublicKey:         peer.PublicKey.String(),
+		PresharedKey:      "(hidden)",
+		Endpoint:          peer.Endpoint.String(),
+		KeepAliveInterval: peer.PersistentKeepaliveInterval.Seconds(),
+		LastHandshakeTime: peer.LastHandshakeTime.Format(time.RFC3339),
+		ReceiveBytes:      peer.ReceiveBytes,
+		TransmitBytes:     peer.TransmitBytes,
+		AllowedIPs:        "",
+		ProtocolVersion:   peer.ProtocolVersion,
+	}
+
+	if showCredential {
+		c.PresharedKey = peer.PresharedKey.String()
+	}
+	allowdIPStrings := make([]string, 0, len(peer.AllowedIPs))
+	for _, v := range peer.AllowedIPs {
+		allowdIPStrings = append(allowdIPStrings, v.String())
+	}
+	c.AllowedIPs = strings.Join(allowdIPStrings, ", ")
+	t.Execute(os.Stdout, c)
 }
