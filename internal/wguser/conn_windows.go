@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -195,7 +194,7 @@ func tryDial(device string, pid uint32, privileges windows.Tokenprivileges) (net
 		return nil, err
 	}
 
-	return winpipe.DialPipe(device, nil, (*syscall.SID)(localSystem))
+	return winpipe.DialPipe(device, nil, localSystem)
 }
 
 // find is the default implementation of Client.find.
