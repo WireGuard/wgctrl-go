@@ -38,9 +38,14 @@ func TestKeyExchange(t *testing.T) {
 	privB, pubB := mustKeyPair()
 
 	// Perform ECDH key exhange: https://cr.yp.to/ecdh.html.
-	var sharedA, sharedB [32]byte
-	curve25519.ScalarMult(&sharedA, privA, pubB)
-	curve25519.ScalarMult(&sharedB, privB, pubA)
+	sharedA, err := curve25519.X25519(privA[:], pubB[:])
+	if err != nil {
+		t.Fatalf("failed to perform X25519 A: %v", err)
+	}
+	sharedB, err := curve25519.X25519(privB[:], pubA[:])
+	if err != nil {
+		t.Fatalf("failed to perform X25519 B: %v", err)
+	}
 
 	if diff := cmp.Diff(sharedA, sharedB); diff != "" {
 		t.Fatalf("unexpected shared secret (-want +got):\n%s", diff)
