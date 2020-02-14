@@ -2,6 +2,7 @@ package wgtypes_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -29,6 +30,15 @@ func TestPreparedKeys(t *testing.T) {
 
 	pub := priv.PublicKey()
 	if diff := cmp.Diff(public, pub.String()); diff != "" {
+		t.Fatalf("unexpected public key (-want +got):\n%s", diff)
+	}
+
+	var jPub wgtypes.Key
+	err = json.Unmarshal([]byte(fmt.Sprintf("\"%v\"", public)), &jPub)
+	if err != nil {
+		t.Fatalf("failed to parse key from json: %v", err)
+	}
+	if diff := cmp.Diff(pub, jPub); diff != "" {
 		t.Fatalf("unexpected public key (-want +got):\n%s", diff)
 	}
 }

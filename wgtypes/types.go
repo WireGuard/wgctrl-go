@@ -126,6 +126,21 @@ func ParseKey(s string) (Key, error) {
 	return NewKey(b)
 }
 
+// UnmarshalJSON assists in creating keys from a json blob.
+func (k *Key) UnmarshalJSON(b []byte) error {
+	var s string
+	err := json.Unmarshal(b, &s)
+	if err != nil {
+		return fmt.Errorf("wgtypes: failed to unmarshal key to json: %v", err)
+	}
+	str, err := ParseKey(s)
+	if err != nil {
+		return fmt.Errorf("wgtypes: failed to unmarshal key to json: %v", err)
+	}
+	*k = str
+	return nil
+}
+
 // PublicKey computes a public key from the private key k.
 //
 // PublicKey should only be called when k is a private key.
