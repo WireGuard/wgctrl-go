@@ -3,6 +3,7 @@ package wgtypes
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net"
 	"time"
@@ -38,28 +39,28 @@ func (dt DeviceType) String() string {
 // A Device is a WireGuard device.
 type Device struct {
 	// Name is the name of the device.
-	Name string
+	Name string `json:"name"`
 
 	// Type specifies the underlying implementation of the device.
-	Type DeviceType
+	Type DeviceType `json:"device_type"`
 
 	// PrivateKey is the device's private key.
-	PrivateKey Key
+	PrivateKey Key `json:"private_key"`
 
 	// PublicKey is the device's public key, computed from its PrivateKey.
-	PublicKey Key
+	PublicKey Key `json:"public_key"`
 
 	// ListenPort is the device's network listening port.
-	ListenPort int
+	ListenPort int `json:"listen_port"`
 
 	// FirewallMark is the device's current firewall mark.
 	//
 	// The firewall mark can be used in conjunction with firewall software to
 	// take action on outgoing WireGuard packets.
-	FirewallMark int
+	FirewallMark int `json:"firewall_mark"`
 
 	// Peers is the list of network peers associated with this device.
-	Peers []Peer
+	Peers []Peer `json:"peers"`
 }
 
 // KeyLen is the expected key length for a WireGuard key.
@@ -153,49 +154,49 @@ type Peer struct {
 	// PublicKey is the public key of a peer, computed from its private key.
 	//
 	// PublicKey is always present in a Peer.
-	PublicKey Key
+	PublicKey Key `json:"public_key"`
 
 	// PresharedKey is an optional preshared key which may be used as an
 	// additional layer of security for peer communications.
 	//
 	// A zero-value Key means no preshared key is configured.
-	PresharedKey Key
+	PresharedKey Key `json:"preshared_key"`
 
 	// Endpoint is the most recent source address used for communication by
 	// this Peer.
-	Endpoint *net.UDPAddr
+	Endpoint *net.UDPAddr `json:"endpoint"`
 
 	// PersistentKeepaliveInterval specifies how often an "empty" packet is sent
 	// to a peer to keep a connection alive.
 	//
 	// A value of 0 indicates that persistent keepalives are disabled.
-	PersistentKeepaliveInterval time.Duration
+	PersistentKeepaliveInterval time.Duration `json:"persistent_keepalive_interval"`
 
 	// LastHandshakeTime indicates the most recent time a handshake was performed
 	// with this peer.
 	//
 	// A zero-value time.Time indicates that no handshake has taken place with
 	// this peer.
-	LastHandshakeTime time.Time
+	LastHandshakeTime time.Time `json:"last_handshake_time"`
 
 	// ReceiveBytes indicates the number of bytes received from this peer.
-	ReceiveBytes int64
+	ReceiveBytes int64 `json:"receive_bytes"`
 
 	// TransmitBytes indicates the number of bytes transmitted to this peer.
-	TransmitBytes int64
+	TransmitBytes int64 `json:"transmit_bytes"`
 
 	// AllowedIPs specifies which IPv4 and IPv6 addresses this peer is allowed
 	// to communicate on.
 	//
 	// 0.0.0.0/0 indicates that all IPv4 addresses are allowed, and ::/0
 	// indicates that all IPv6 addresses are allowed.
-	AllowedIPs []net.IPNet
+	AllowedIPs []net.IPNet `json:"allowed_ips"`
 
 	// ProtocolVersion specifies which version of the WireGuard protocol is used
 	// for this Peer.
 	//
 	// A value of 0 indicates that the most recent protocol version will be used.
-	ProtocolVersion int
+	ProtocolVersion int `json:"protocol_version"`
 }
 
 // A Config is a WireGuard device configuration.
@@ -207,22 +208,22 @@ type Config struct {
 	// PrivateKey specifies a private key configuration, if not nil.
 	//
 	// A non-nil, zero-value Key will clear the private key.
-	PrivateKey *Key
+	PrivateKey *Key `json:"private_key"`
 
 	// ListenPort specifies a device's listening port, if not nil.
-	ListenPort *int
+	ListenPort *int `json:"listen_port"`
 
 	// FirewallMark specifies a device's firewall mark, if not nil.
 	//
 	// If non-nil and set to 0, the firewall mark will be cleared.
-	FirewallMark *int
+	FirewallMark *int `json:"firewall_mark"`
 
 	// ReplacePeers specifies if the Peers in this configuration should replace
 	// the existing peer list, instead of appending them to the existing list.
-	ReplacePeers bool
+	ReplacePeers bool `json:"replace_peers"`
 
 	// Peers specifies a list of peer configurations to apply to a device.
-	Peers []PeerConfig
+	Peers []PeerConfig `json:"peers"`
 }
 
 // TODO(mdlayher): consider adding ProtocolVersion in PeerConfig.
@@ -235,36 +236,36 @@ type Config struct {
 type PeerConfig struct {
 	// PublicKey specifies the public key of this peer.  PublicKey is a
 	// mandatory field for all PeerConfigs.
-	PublicKey Key
+	PublicKey Key `json:"public_key"`
 
 	// Remove specifies if the peer with this public key should be removed
 	// from a device's peer list.
-	Remove bool
+	Remove bool `json:"remove"`
 
 	// UpdateOnly specifies that an operation will only occur on this peer
 	// if the peer already exists as part of the interface.
-	UpdateOnly bool
+	UpdateOnly bool `json:"update_only"`
 
 	// PresharedKey specifies a peer's preshared key configuration, if not nil.
 	//
 	// A non-nil, zero-value Key will clear the preshared key.
-	PresharedKey *Key
+	PresharedKey *Key `json:"preshared_key"`
 
 	// Endpoint specifies the endpoint of this peer entry, if not nil.
-	Endpoint *net.UDPAddr
+	Endpoint *net.UDPAddr `json:"endpoint"`
 
 	// PersistentKeepaliveInterval specifies the persistent keepalive interval
 	// for this peer, if not nil.
 	//
 	// A non-nil value of 0 will clear the persistent keepalive interval.
-	PersistentKeepaliveInterval *time.Duration
+	PersistentKeepaliveInterval *time.Duration `json:"persistent_keepalive_interval"`
 
 	// ReplaceAllowedIPs specifies if the allowed IPs specified in this peer
 	// configuration should replace any existing ones, instead of appending them
 	// to the allowed IPs list.
-	ReplaceAllowedIPs bool
+	ReplaceAllowedIPs bool `json:"replace_allowed_ips"`
 
 	// AllowedIPs specifies a list of allowed IP addresses in CIDR notation
 	// for this peer.
-	AllowedIPs []net.IPNet
+	AllowedIPs []net.IPNet `json:"allowed_ips"`
 }
