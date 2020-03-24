@@ -123,7 +123,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 					Type: netlink.Nested | wgh.DeviceAPeers,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
-							Type: netlink.Nested | 0,
+							Type: netlink.Nested,
 							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
@@ -352,7 +352,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
@@ -376,7 +376,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
@@ -402,7 +402,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
@@ -427,7 +427,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
@@ -451,7 +451,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
@@ -476,7 +476,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
@@ -501,7 +501,7 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 			Type: netlink.Nested | wgh.DeviceAPeers,
 			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 				{
-					Type: netlink.Nested | 0,
+					Type: netlink.Nested,
 					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
 						{
 							Type: wgh.PeerAPublicKey,
