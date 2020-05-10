@@ -54,14 +54,6 @@ func TestClientDevices(t *testing.T) {
 
 	c := &Client{
 		ioctlIfgroupreq: ifgrFunc,
-		ioctlWGGetServ: func(wgs *wgh.WGGetServ) error {
-			// No added device information, no peer information.
-			wgs.Num_peers = 0
-			return nil
-		},
-		ioctlWGGetPeer: func(_ *wgh.WGGetPeer) error {
-			panic("no peers configured, should not be called")
-		},
 	}
 
 	devices, err := c.Devices()

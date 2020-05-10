@@ -40,22 +40,3 @@ type Ifgreq C.struct_ifg_req
 type Timespec C.struct_timespec
 
 // WireGuard types and constants.
-
-const (
-	SIOCGWGSERV = C.SIOCGWGSERV
-	SIOCGWGPEER = C.SIOCGWGPEER
-
-	SizeofWGIP = C.sizeof_union_wg_ip
-
-	WGStateNoSession = C.WG_STATE_NO_SESSION
-	WGStateInitiator = C.WG_STATE_INITIATOR
-	WGStateResponder = C.WG_STATE_RESPONDER
-)
-
-type WGGetServ C.struct_wg_get_serv
-
-type WGGetPeer C.struct_wg_get_peer
-
-type WGIP C.union_wg_ip
-
-type WGCIDR C.struct_wg_cidr
