@@ -4,6 +4,7 @@ package wgopenbsd
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"runtime"
 	"unsafe"
@@ -104,8 +105,9 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 // Device implements wginternal.Client.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	return &wgtypes.Device{
-		Name: name,
-		Type: wgtypes.OpenBSDKernel,
+		Name:  name,
+		Type:  wgtypes.OpenBSDKernel,
+		Peers: []wgtypes.Peer{},
 	}, nil
 }
 
@@ -119,6 +121,18 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	}
 
 	return wginternal.ErrReadOnly
+}
+
+// deviceName converts an interface name string to the format required to pass
+// with wgh.WGGetServ.
+func deviceName(name string) ([16]byte, error) {
+	var out [unix.IFNAMSIZ]byte
+	if len(name) > unix.IFNAMSIZ {
+		return out, fmt.Errorf("wgopenbsd: interface name %q too long", name)
+	}
+
+	copy(out[:], name)
+	return out, nil
 }
 
 // ioctlIfgroupreq returns a function which performs the appropriate ioctl on
