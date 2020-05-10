@@ -27,3 +27,50 @@ type Timespec struct {
 	Sec  int64
 	Nsec int64
 }
+
+type WGDataIO struct {
+	Name [16]byte
+	Size uint64
+	Mem  *byte
+}
+
+type WGInterfaceIO struct {
+	Flags   uint8
+	Peers   *WGPeerIO
+	Port    uint16
+	Rtable  int32
+	Public  [32]byte
+	Private [32]byte
+}
+
+type WGPeerIO struct {
+	Flags          int32
+	Next           *WGPeerIO
+	Aips           *WGAIPIO
+	Public         [32]byte
+	Psk            [32]byte
+	Pka            uint16
+	Pad_cgo_0      [2]byte
+	Sockaddr       [28]byte
+	Txbytes        uint64
+	Rxbytes        uint64
+	Last_handshake Timespec
+}
+
+type WGAIPIO struct {
+	Flags int32
+	Next  *WGAIPIO
+	Cidr  WGAIPCIDR
+}
+
+type WGAIPCIDR struct {
+	Af   uint8
+	Mask int32
+	Addr [16]byte
+}
+
+const (
+	SIOCGWG = 0xc02069d3
+
+	SizeofWGInterfaceIO = 0x58
+)

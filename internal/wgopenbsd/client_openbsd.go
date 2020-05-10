@@ -28,6 +28,7 @@ type Client struct {
 	// during tests.
 	close           func() error
 	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq) error
+	ioctlWGDataIO   func(data *wgh.WGDataIO) error
 }
 
 // New creates a new Client and returns whether or not the ioctl interface
@@ -48,6 +49,7 @@ func New() (*Client, bool, error) {
 	return &Client{
 		close:           func() error { return unix.Close(fd) },
 		ioctlIfgroupreq: ioctlIfgroupreq(fd),
+		ioctlWGDataIO:   ioctlWGDataIO(fd),
 	}, true, nil
 }
 
@@ -104,10 +106,52 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 
 // Device implements wginternal.Client.
 func (c *Client) Device(name string) (*wgtypes.Device, error) {
+	dname, err := deviceName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// First, specify the name of the device and determine how much memory
+	// must be allocated in order to store the WGInterfaceIO structure.
+	data := wgh.WGDataIO{Name: dname}
+
+	if err := c.ioctlWGDataIO(&data); err != nil {
+		// ioctl functions always return a wrapped unix.Errno value.
+		// Conform to the wgctrl contract by converting "no such device"
+		// to "not exist".
+		switch err.(*os.SyscallError).Err {
+		case unix.ENXIO:
+			return nil, os.ErrNotExist
+		default:
+			return nil, err
+		}
+	}
+
+	// Ensure we don't unsafe cast into uninitialized memory.
+	if data.Size != wgh.SizeofWGInterfaceIO {
+		return nil, fmt.Errorf("wgopenbsd: kernel returned unexpected number of bytes for WGInterfaceIO: %d", data.Size)
+	}
+
+	// Allocate the appropriate amount of memory and point the kernel at
+	// the first byte of our slice's backing array. Perform the same ioctl
+	// again to populate mem with bytes for a WGInterfaceIO.
+	mem := make([]byte, data.Size)
+	data.Mem = &mem[0]
+
+	if err := c.ioctlWGDataIO(&data); err != nil {
+		return nil, err
+	}
+
+	// TODO: unpacking of peers, allowed IPs, etc.
+	ifio := *(*wgh.WGInterfaceIO)(unsafe.Pointer(data.Mem))
+
 	return &wgtypes.Device{
-		Name:  name,
-		Type:  wgtypes.OpenBSDKernel,
-		Peers: []wgtypes.Peer{},
+		Name:       name,
+		Type:       wgtypes.OpenBSDKernel,
+		PrivateKey: wgtypes.Key(ifio.Private),
+		PublicKey:  wgtypes.Key(ifio.Public),
+		ListenPort: int(ifio.Port),
+		Peers:      []wgtypes.Peer{},
 	}, nil
 }
 
@@ -140,6 +184,14 @@ func deviceName(name string) ([16]byte, error) {
 func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq) error {
 	return func(ifg *wgh.Ifgroupreq) error {
 		return ioctl(fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(ifg))
+	}
+}
+
+// ioctlWGDataIO returns a function which performs the appropriate ioctl on
+// fd to issue a WireGuard data I/O.
+func ioctlWGDataIO(fd int) func(*wgh.WGDataIO) error {
+	return func(data *wgh.WGDataIO) error {
+		return ioctl(fd, wgh.SIOCGWG, unsafe.Pointer(data))
 	}
 }
 

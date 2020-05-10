@@ -40,3 +40,19 @@ type Ifgreq C.struct_ifg_req
 type Timespec C.struct_timespec
 
 // WireGuard types and constants.
+
+type WGDataIO C.struct_wg_data_io
+
+type WGInterfaceIO C.struct_wg_interface_io
+
+type WGPeerIO C.struct_wg_peer_io
+
+type WGAIPIO C.struct_wg_aip_io
+
+type WGAIPCIDR C.struct_wg_aip_cidr
+
+const (
+	SIOCGWG = C.SIOCGWG
+
+	SizeofWGInterfaceIO = C.sizeof_struct_wg_interface_io
+)

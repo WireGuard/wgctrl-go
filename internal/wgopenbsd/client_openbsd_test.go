@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/google/go-cmp/cmp"
+	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgopenbsd/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgtest"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -23,14 +24,14 @@ func TestClientDevices(t *testing.T) {
 		devB = "testwg1"
 	)
 
-	var calls int
+	var ifgrCalls int
 	ifgrFunc := func(ifg *wgh.Ifgroupreq) error {
 		// Verify the caller is asking for WireGuard interface group members.
 		if diff := cmp.Diff(ifGroupWG, ifg.Name); diff != "" {
 			t.Fatalf("unexpected interface group (-want +got):\n%s", diff)
 		}
 
-		switch calls {
+		switch ifgrCalls {
 		case 0:
 			// Inform the caller that we have n device names available.
 			ifg.Len = n * wgh.SizeofIfgreq
@@ -45,12 +46,31 @@ func TestClientDevices(t *testing.T) {
 			t.Fatal("too many calls to ioctlIfgroupreq")
 		}
 
-		calls++
+		ifgrCalls++
+		return nil
+	}
+
+	var wgIOCalls int
+	wgDataIOFunc := func(data *wgh.WGDataIO) error {
+		// Expect two calls per device, where the first call indicates the
+		// number of bytes to populate, and the second would normally populate
+		// the caller's memory.
+		switch wgIOCalls {
+		case 0, 2:
+			data.Size = wgh.SizeofWGInterfaceIO
+		case 1, 3:
+			// No-op, nothing to fill out.
+		default:
+			t.Fatal("too many calls to ioctlWGDataIO")
+		}
+
+		wgIOCalls++
 		return nil
 	}
 
 	c := &Client{
 		ioctlIfgroupreq: ifgrFunc,
+		ioctlWGDataIO:   wgDataIOFunc,
 	}
 
 	devices, err := c.Devices()
@@ -94,9 +114,35 @@ func TestClientDeviceBasic(t *testing.T) {
 		psk  = wgtest.MustPresharedKey()
 	)
 
+	var calls int
 	c := &Client{
 		ioctlIfgroupreq: func(_ *wgh.Ifgroupreq) error {
 			panic("no calls to Client.Devices, should not be called")
+		},
+		ioctlWGDataIO: func(data *wgh.WGDataIO) error {
+			// Verify the caller is asking for WireGuard interface group members.
+			if diff := cmp.Diff(devName(device), data.Name); diff != "" {
+				t.Fatalf("unexpected interface name (-want +got):\n%s", diff)
+			}
+
+			switch calls {
+			case 0:
+				// Inform the caller that we have a WGInterfaceIO available.
+				data.Size = wgh.SizeofWGInterfaceIO
+			case 1:
+				// The structure pointed at is the first in an array. Populate the
+				// array memory with device names.
+				*(*wgh.WGInterfaceIO)(unsafe.Pointer(data.Mem)) = wgh.WGInterfaceIO{
+					Port:    8080,
+					Private: priv,
+					Public:  pub,
+				}
+			default:
+				t.Fatal("too many calls to ioctlWGDataIO")
+			}
+
+			calls++
+			return nil
 		},
 	}
 
@@ -105,19 +151,18 @@ func TestClientDeviceBasic(t *testing.T) {
 		t.Fatalf("failed to get device: %v", err)
 	}
 
-	_, _, _ = pub, peer, psk
+	_, _ = peer, psk
 
 	want := &wgtypes.Device{
-		Name:  device,
-		Type:  wgtypes.OpenBSDKernel,
-		Peers: []wgtypes.Peer{},
+		Name:       device,
+		Type:       wgtypes.OpenBSDKernel,
+		PrivateKey: priv,
+		PublicKey:  pub,
+		ListenPort: 8080,
+		Peers:      []wgtypes.Peer{},
 		/*
-
 			TODO: enable when ready.
 
-			PrivateKey: priv,
-			PublicKey:  pub,
-			ListenPort: 8080,
 			Peers: []wgtypes.Peer{{
 				PublicKey:                   peer,
 				PresharedKey:                psk,
@@ -140,34 +185,32 @@ func TestClientDeviceBasic(t *testing.T) {
 }
 
 func TestClientDeviceNotExist(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-	}{
-		/*
-
-			TODO: enable when ready.
-
-			{
-				name: "ENXIO",
-				err:  os.NewSyscallError("ioctl", unix.ENXIO),
-			},
-			{
-				name: "ENOTTY",
-				err:  os.NewSyscallError("ioctl", unix.ENOTTY),
-			},
-		*/
+	c := &Client{
+		ioctlWGDataIO: func(_ *wgh.WGDataIO) error {
+			return os.NewSyscallError("ioctl", unix.ENXIO)
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &Client{}
-
-			if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
-				t.Fatalf("expected is not exist, but got: %v", err)
-			}
-		})
+	if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+		t.Fatalf("expected is not exist, but got: %v", err)
 	}
+}
+
+func TestClientDeviceWrongMemorySize(t *testing.T) {
+	c := &Client{
+		ioctlWGDataIO: func(data *wgh.WGDataIO) error {
+			// Pass a nonsensical number of bytes back to the caller.
+			data.Size = 1
+			return nil
+		},
+	}
+
+	_, err := c.Device("wg0")
+	if err == nil {
+		t.Fatal("expected an error, but none occurred")
+	}
+
+	t.Logf("err: %v", err)
 }
 
 func devName(name string) [16]byte {
