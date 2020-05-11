@@ -49,10 +49,16 @@ type WGPeerIO C.struct_wg_peer_io
 
 type WGAIPIO C.struct_wg_aip_io
 
-type WGAIPCIDR C.struct_wg_aip_cidr
+type WGAIPData C.struct_wg_aip_data
 
 const (
 	SIOCGWG = C.SIOCGWG
+
+	WG_INTERFACE_HAS_PUBLIC    = C.WG_INTERFACE_HAS_PUBLIC
+	WG_INTERFACE_HAS_PRIVATE   = C.WG_INTERFACE_HAS_PRIVATE
+	WG_INTERFACE_HAS_PORT      = C.WG_INTERFACE_HAS_PORT
+	WG_INTERFACE_HAS_RTABLE    = C.WG_INTERFACE_HAS_RTABLE
+	WG_INTERFACE_REPLACE_PEERS = C.WG_INTERFACE_REPLACE_PEERS
 
 	SizeofWGInterfaceIO = C.sizeof_struct_wg_interface_io
 )
