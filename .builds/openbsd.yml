@@ -1,4 +1,4 @@
-image: openbsd/6.5
+image: openbsd/latest
 packages:
   - bash
   - go
