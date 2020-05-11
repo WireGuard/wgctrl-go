@@ -190,14 +190,32 @@ func TestClientDeviceBasic(t *testing.T) {
 }
 
 func TestClientDeviceNotExist(t *testing.T) {
-	c := &Client{
-		ioctlWGDataIO: func(_ *wgh.WGDataIO) error {
-			return os.NewSyscallError("ioctl", unix.ENXIO)
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "ENXIO",
+			err:  os.NewSyscallError("ioctl", unix.ENXIO),
+		},
+		{
+			name: "ENOTTY",
+			err:  os.NewSyscallError("ioctl", unix.ENOTTY),
 		},
 	}
 
-	if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
-		t.Fatalf("expected is not exist, but got: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Client{
+				ioctlWGDataIO: func(_ *wgh.WGDataIO) error {
+					return tt.err
+				},
+			}
+
+			if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+				t.Fatalf("expected is not exist, but got: %v", err)
+			}
+		})
 	}
 }
 

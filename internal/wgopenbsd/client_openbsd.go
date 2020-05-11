@@ -118,10 +118,12 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 
 	if err := c.ioctlWGDataIO(&data); err != nil {
 		// ioctl functions always return a wrapped unix.Errno value.
-		// Conform to the wgctrl contract by converting "no such device"
-		// to "not exist".
+		// Conform to the wgctrl contract by unwrapping some values:
+		//   ENXIO: "no such device": (no such WireGuard device)
+		//   ENOTTY: "inappropriate ioctl for device" (device is not a
+		//	   WireGuard device)
 		switch err.(*os.SyscallError).Err {
-		case unix.ENXIO:
+		case unix.ENXIO, unix.ENOTTY:
 			return nil, os.ErrNotExist
 		default:
 			return nil, err
