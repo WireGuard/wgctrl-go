@@ -3,6 +3,7 @@
 package wgopenbsd
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"testing"
@@ -130,12 +131,20 @@ func TestClientDeviceBasic(t *testing.T) {
 				// Inform the caller that we have a WGInterfaceIO available.
 				data.Size = wgh.SizeofWGInterfaceIO
 			case 1:
-				// The structure pointed at is the first in an array. Populate the
-				// array memory with device names.
+				// The caller expects a WGInterfaceIO which is populated with
+				// data, so fill it out now.
+				var nb [2]byte
+				binary.BigEndian.PutUint16(nb[:], 8080)
+
 				*(*wgh.WGInterfaceIO)(unsafe.Pointer(data.Mem)) = wgh.WGInterfaceIO{
-					Port:    8080,
+					Flags: wgh.WG_INTERFACE_HAS_PUBLIC |
+						wgh.WG_INTERFACE_HAS_PRIVATE |
+						wgh.WG_INTERFACE_HAS_PORT |
+						wgh.WG_INTERFACE_HAS_RTABLE,
+					Port:    *(*uint16)(unsafe.Pointer(&nb[0])),
 					Private: priv,
 					Public:  pub,
+					Rtable:  1,
 				}
 			default:
 				t.Fatal("too many calls to ioctlWGDataIO")
@@ -154,12 +163,13 @@ func TestClientDeviceBasic(t *testing.T) {
 	_, _ = peer, psk
 
 	want := &wgtypes.Device{
-		Name:       device,
-		Type:       wgtypes.OpenBSDKernel,
-		PrivateKey: priv,
-		PublicKey:  pub,
-		ListenPort: 8080,
-		Peers:      []wgtypes.Peer{},
+		Name:         device,
+		Type:         wgtypes.OpenBSDKernel,
+		PrivateKey:   priv,
+		PublicKey:    pub,
+		ListenPort:   8080,
+		FirewallMark: 1,
+		Peers:        []wgtypes.Peer{},
 		/*
 			TODO: enable when ready.
 

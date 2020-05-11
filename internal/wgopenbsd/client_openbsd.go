@@ -4,6 +4,7 @@ package wgopenbsd
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"runtime"
@@ -145,14 +146,31 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	// TODO: unpacking of peers, allowed IPs, etc.
 	ifio := *(*wgh.WGInterfaceIO)(unsafe.Pointer(data.Mem))
 
-	return &wgtypes.Device{
-		Name:       name,
-		Type:       wgtypes.OpenBSDKernel,
-		PrivateKey: wgtypes.Key(ifio.Private),
-		PublicKey:  wgtypes.Key(ifio.Public),
-		ListenPort: int(ifio.Port),
-		Peers:      []wgtypes.Peer{},
-	}, nil
+	d := &wgtypes.Device{
+		Name:  name,
+		Type:  wgtypes.OpenBSDKernel,
+		Peers: []wgtypes.Peer{},
+	}
+
+	// The kernel populates ifio.Flags to indicate which fields are present.
+
+	if ifio.Flags&wgh.WG_INTERFACE_HAS_PRIVATE != 0 {
+		d.PrivateKey = wgtypes.Key(ifio.Private)
+	}
+
+	if ifio.Flags&wgh.WG_INTERFACE_HAS_PUBLIC != 0 {
+		d.PublicKey = wgtypes.Key(ifio.Public)
+	}
+
+	if ifio.Flags&wgh.WG_INTERFACE_HAS_PORT != 0 {
+		d.ListenPort = bePort(ifio.Port)
+	}
+
+	if ifio.Flags&wgh.WG_INTERFACE_HAS_RTABLE != 0 {
+		d.FirewallMark = int(ifio.Rtable)
+	}
+
+	return d, nil
 }
 
 // ConfigureDevice implements wginternal.Client.
@@ -177,6 +195,14 @@ func deviceName(name string) ([16]byte, error) {
 
 	copy(out[:], name)
 	return out, nil
+}
+
+// bePort interprets a port integer stored in native endianness as a big
+// endian value. This is necessary for proper endpoint port handling on
+// little endian machines.
+func bePort(port uint16) int {
+	b := *(*[2]byte)(unsafe.Pointer(&port))
+	return int(binary.BigEndian.Uint16(b[:]))
 }
 
 // ioctlIfgroupreq returns a function which performs the appropriate ioctl on
