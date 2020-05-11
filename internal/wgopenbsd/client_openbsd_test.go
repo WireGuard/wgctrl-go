@@ -101,12 +101,7 @@ func TestClientDevices(t *testing.T) {
 
 func TestClientDeviceBasic(t *testing.T) {
 	// Fixed parameters for the test.
-	const (
-		device = "testwg0"
-
-		nPeers      = 1
-		nAllowedIPs = 2
-	)
+	const device = "testwg0"
 
 	var (
 		priv = wgtest.MustPrivateKey()
