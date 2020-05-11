@@ -125,6 +125,13 @@ func ParseKey(s string) (Key, error) {
 	return NewKey(b)
 }
 
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+func (k *Key) UnmarshalText(text []byte) error {
+	var err error
+	*k, err = ParseKey(string(text))
+	return err
+}
+
 // PublicKey computes a public key from the private key k.
 //
 // PublicKey should only be called when k is a private key.
