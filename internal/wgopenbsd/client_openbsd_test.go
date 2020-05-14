@@ -3,8 +3,6 @@
 package wgopenbsd
 
 import (
-	"encoding/binary"
-	"fmt"
 	"os"
 	"testing"
 	"unsafe"
@@ -50,6 +48,10 @@ func TestClientDevices(t *testing.T) {
 		ifgrCalls++
 		return nil
 	}
+
+	// TODO(mdlayher): add a test case where the data.Size field changes between
+	// call 1 and 2, so the caller must loop again to determine how much memory
+	// to allocate for the memory slice.
 
 	var wgIOCalls int
 	wgDataIOFunc := func(data *wgh.WGDataIO) error {
@@ -128,15 +130,12 @@ func TestClientDeviceBasic(t *testing.T) {
 			case 1:
 				// The caller expects a WGInterfaceIO which is populated with
 				// data, so fill it out now.
-				var nb [2]byte
-				binary.BigEndian.PutUint16(nb[:], 8080)
-
-				*(*wgh.WGInterfaceIO)(unsafe.Pointer(data.Mem)) = wgh.WGInterfaceIO{
+				data.Interface = &wgh.WGInterfaceIO{
 					Flags: wgh.WG_INTERFACE_HAS_PUBLIC |
 						wgh.WG_INTERFACE_HAS_PRIVATE |
 						wgh.WG_INTERFACE_HAS_PORT |
 						wgh.WG_INTERFACE_HAS_RTABLE,
-					Port:    *(*uint16)(unsafe.Pointer(&nb[0])),
+					Port:    8080,
 					Private: priv,
 					Public:  pub,
 					Rtable:  1,
@@ -243,8 +242,4 @@ func devName(name string) [16]byte {
 	}
 
 	return nb
-}
-
-func panicf(format string, a ...interface{}) {
-	panic(fmt.Sprintf(format, a...))
 }
