@@ -3,8 +3,10 @@
 package wgopenbsd
 
 import (
+	"net"
 	"os"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/google/go-cmp/cmp"
@@ -106,10 +108,12 @@ func TestClientDeviceBasic(t *testing.T) {
 	const device = "testwg0"
 
 	var (
-		priv = wgtest.MustPrivateKey()
-		pub  = priv.PublicKey()
-		peer = wgtest.MustPublicKey()
-		psk  = wgtest.MustPresharedKey()
+		priv  = wgtest.MustPrivateKey()
+		pub   = priv.PublicKey()
+		peerA = wgtest.MustPublicKey()
+		peerB = wgtest.MustPublicKey()
+		peerC = wgtest.MustPublicKey()
+		psk   = wgtest.MustPresharedKey()
 	)
 
 	var calls int
@@ -125,21 +129,84 @@ func TestClientDeviceBasic(t *testing.T) {
 
 			switch calls {
 			case 0:
-				// Inform the caller that we have a WGInterfaceIO available.
-				data.Size = wgh.SizeofWGInterfaceIO
+				// Inform the caller that we have one device, one peer, and
+				// two allowed IPs associated with that peer.
+				data.Size = wgh.SizeofWGInterfaceIO +
+					wgh.SizeofWGPeerIO + 2*wgh.SizeofWGAIPIO +
+					wgh.SizeofWGPeerIO + wgh.SizeofWGAIPIO +
+					wgh.SizeofWGPeerIO
 			case 1:
 				// The caller expects a WGInterfaceIO which is populated with
 				// data, so fill it out now.
-				data.Interface = &wgh.WGInterfaceIO{
-					Flags: wgh.WG_INTERFACE_HAS_PUBLIC |
-						wgh.WG_INTERFACE_HAS_PRIVATE |
-						wgh.WG_INTERFACE_HAS_PORT |
-						wgh.WG_INTERFACE_HAS_RTABLE,
-					Port:    8080,
-					Private: priv,
-					Public:  pub,
-					Rtable:  1,
-				}
+				b := pack(
+					&wgh.WGInterfaceIO{
+						Flags: wgh.WG_INTERFACE_HAS_PUBLIC |
+							wgh.WG_INTERFACE_HAS_PRIVATE |
+							wgh.WG_INTERFACE_HAS_PORT |
+							wgh.WG_INTERFACE_HAS_RTABLE,
+						Port:        8080,
+						Rtable:      1,
+						Public:      pub,
+						Private:     priv,
+						Peers_count: 3,
+					},
+					&wgh.WGPeerIO{
+						Flags: wgh.WG_PEER_HAS_PUBLIC |
+							wgh.WG_PEER_HAS_PSK |
+							wgh.WG_PEER_HAS_PKA |
+							wgh.WG_PEER_HAS_ENDPOINT,
+						Protocol_version: 1,
+						Public:           peerA,
+						Psk:              psk,
+						Pka:              60,
+						Endpoint: *(*[28]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
+							Len:    uint8(unsafe.Sizeof(unix.RawSockaddrInet4{})),
+							Family: unix.AF_INET,
+							Port:   uint16(bePort(1024)),
+							Addr:   [4]byte{192, 0, 2, 0},
+						})),
+						Txbytes: 1,
+						Rxbytes: 2,
+						Last_handshake: wgh.Timespec{
+							Sec:  1,
+							Nsec: 2,
+						},
+						Aips_count: 2,
+					},
+					&wgh.WGAIPIO{
+						Af:   unix.AF_INET,
+						Cidr: 24,
+						Addr: [16]byte{0: 192, 1: 168, 2: 1, 3: 0},
+					},
+					&wgh.WGAIPIO{
+						Af:   unix.AF_INET6,
+						Cidr: 64,
+						Addr: [16]byte{0: 0xfd},
+					},
+					&wgh.WGPeerIO{
+						Flags: wgh.WG_PEER_HAS_PUBLIC |
+							wgh.WG_PEER_HAS_ENDPOINT,
+						Public: peerB,
+						Endpoint: *(*[28]byte)(unsafe.Pointer(&unix.RawSockaddrInet6{
+							Len:    uint8(unsafe.Sizeof(unix.RawSockaddrInet6{})),
+							Family: unix.AF_INET6,
+							Port:   uint16(bePort(2048)),
+							Addr:   [16]byte{15: 0x01},
+						})),
+						Aips_count: 1,
+					},
+					&wgh.WGAIPIO{
+						Af:   unix.AF_INET6,
+						Cidr: 128,
+						Addr: [16]byte{0: 0x20, 1: 0x01, 2: 0x0d, 3: 0xb8, 15: 0x01},
+					},
+					&wgh.WGPeerIO{
+						Flags:  wgh.WG_PEER_HAS_PUBLIC,
+						Public: peerC,
+					},
+				)
+
+				data.Interface = (*wgh.WGInterfaceIO)(unsafe.Pointer(&b[0]))
 			default:
 				t.Fatal("too many calls to ioctlWGDataIO")
 			}
@@ -154,8 +221,6 @@ func TestClientDeviceBasic(t *testing.T) {
 		t.Fatalf("failed to get device: %v", err)
 	}
 
-	_, _ = peer, psk
-
 	want := &wgtypes.Device{
 		Name:         device,
 		Type:         wgtypes.OpenBSDKernel,
@@ -163,14 +228,11 @@ func TestClientDeviceBasic(t *testing.T) {
 		PublicKey:    pub,
 		ListenPort:   8080,
 		FirewallMark: 1,
-		Peers:        []wgtypes.Peer{},
-		/*
-			TODO: enable when ready.
-
-			Peers: []wgtypes.Peer{{
-				PublicKey:                   peer,
+		Peers: []wgtypes.Peer{
+			{
+				PublicKey:                   peerA,
 				PresharedKey:                psk,
-				Endpoint:                    wgtest.MustUDPAddr("[fd00::1]:1024"),
+				Endpoint:                    wgtest.MustUDPAddr("192.0.2.0:1024"),
 				PersistentKeepaliveInterval: 60 * time.Second,
 				ReceiveBytes:                2,
 				TransmitBytes:               1,
@@ -179,8 +241,18 @@ func TestClientDeviceBasic(t *testing.T) {
 					wgtest.MustCIDR("192.168.1.0/24"),
 					wgtest.MustCIDR("fd00::/64"),
 				},
-			}},
-		*/
+				ProtocolVersion: 1,
+			},
+			{
+				PublicKey:  peerB,
+				Endpoint:   wgtest.MustUDPAddr("[::1]:2048"),
+				AllowedIPs: []net.IPNet{wgtest.MustCIDR("2001:db8::1/128")},
+			},
+			{
+				PublicKey:  peerC,
+				AllowedIPs: []net.IPNet{},
+			},
+		},
 	}
 
 	if diff := cmp.Diff(want, d); diff != "" {
@@ -233,6 +305,27 @@ func TestClientDeviceWrongMemorySize(t *testing.T) {
 	}
 
 	t.Logf("err: %v", err)
+}
+
+// pack packs a WGInterfaceIO and trailing WGPeerIO/WGAIPIO values in a
+// contiguous byte slice to emulate the kernel module output.
+func pack(ifio *wgh.WGInterfaceIO, values ...interface{}) []byte {
+	out := (*(*[wgh.SizeofWGInterfaceIO]byte)(unsafe.Pointer(ifio)))[:]
+
+	for _, v := range values {
+		switch v := v.(type) {
+		case *wgh.WGPeerIO:
+			b := (*(*[wgh.SizeofWGPeerIO]byte)(unsafe.Pointer(v)))[:]
+			out = append(out, b...)
+		case *wgh.WGAIPIO:
+			b := (*(*[wgh.SizeofWGAIPIO]byte)(unsafe.Pointer(v)))[:]
+			out = append(out, b...)
+		default:
+			panicf("pack: invalid type %T", v)
+		}
+	}
+
+	return out
 }
 
 func devName(name string) [16]byte {

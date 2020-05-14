@@ -243,14 +243,19 @@ func deviceName(name string) ([16]byte, error) {
 // parsePeer unpacks a wgtypes.Peer from a WGPeerIO structure.
 func parsePeer(pio *wgh.WGPeerIO) wgtypes.Peer {
 	p := wgtypes.Peer{
-		ReceiveBytes:  int64(pio.Rxbytes),
-		TransmitBytes: int64(pio.Txbytes),
-		LastHandshakeTime: time.Unix(
+		ReceiveBytes:    int64(pio.Rxbytes),
+		TransmitBytes:   int64(pio.Txbytes),
+		ProtocolVersion: int(pio.Protocol_version),
+	}
+
+	// Only set last handshake if a non-zero timespec was provided, matching
+	// the time.Time.IsZero() behavior of internal/wglinux.
+	if pio.Last_handshake.Sec > 0 && pio.Last_handshake.Nsec > 0 {
+		p.LastHandshakeTime = time.Unix(
 			pio.Last_handshake.Sec,
 			// Conversion required for GOARCH=386.
 			int64(pio.Last_handshake.Nsec),
-		),
-		ProtocolVersion: int(pio.Protocol_version),
+		)
 	}
 
 	if pio.Flags&wgh.WG_PEER_HAS_PUBLIC != 0 {
