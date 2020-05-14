@@ -280,7 +280,7 @@ func parseTimespec(t *time.Time) func(b []byte) error {
 
 		// Only set fields if UNIX timestamp value is greater than 0, so the
 		// caller will see a zero-value time.Time otherwise.
-		if sec > 0 && nsec > 0 {
+		if sec > 0 || nsec > 0 {
 			*t = time.Unix(sec, nsec)
 		}
 

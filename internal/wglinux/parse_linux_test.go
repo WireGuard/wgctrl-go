@@ -267,21 +267,6 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 											Port: sockaddrPort(2222),
 										})))[:],
 									},
-									// Explicitly set last handshake time to
-									// UNIX timestamp 0 to test zero-value
-									// time.Time logic.
-									//
-									// In addition, we'll also test the timespec32
-									// logic here, although we would never
-									// expect WireGuard to return mixed size
-									// values on the same platform.
-									{
-										Type: wgh.PeerALastHandshakeTime,
-										Data: (*(*[sizeofTimespec32]byte)(unsafe.Pointer(&timespec32{
-											Sec:  0,
-											Nsec: 0,
-										})))[:],
-									},
 								}),
 							},
 						}),
@@ -514,6 +499,82 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 
 			if diff := cmp.Diff(tt.devices, devices); diff != "" {
 				t.Fatalf("unexpected devices (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_parseTimespec(t *testing.T) {
+	var zero [sizeofTimespec64]byte
+
+	tests := []struct {
+		name string
+		b    []byte
+		t    time.Time
+		ok   bool
+	}{
+		{
+			name: "bad",
+			b:    []byte{0xff},
+		},
+		{
+			name: "timespec32",
+			b: (*(*[sizeofTimespec32]byte)(unsafe.Pointer(&timespec32{
+				Sec:  1,
+				Nsec: 2,
+			})))[:],
+			t:  time.Unix(1, 2),
+			ok: true,
+		},
+		{
+			name: "timespec64",
+			b: (*(*[sizeofTimespec64]byte)(unsafe.Pointer(&timespec64{
+				Sec:  2,
+				Nsec: 1,
+			})))[:],
+			t:  time.Unix(2, 1),
+			ok: true,
+		},
+		{
+			name: "zero seconds",
+			b: (*(*[sizeofTimespec64]byte)(unsafe.Pointer(&timespec64{
+				Nsec: 1,
+			})))[:],
+			t:  time.Unix(0, 1),
+			ok: true,
+		},
+		{
+			name: "zero nanoseconds",
+			b: (*(*[sizeofTimespec64]byte)(unsafe.Pointer(&timespec64{
+				Sec: 1,
+			})))[:],
+			t:  time.Unix(1, 0),
+			ok: true,
+		},
+		{
+			name: "zero both",
+			b:    zero[:],
+			ok:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got time.Time
+			err := parseTimespec(&got)(tt.b)
+			if tt.ok && err != nil {
+				t.Fatalf("failed to parse timespec: %v", err)
+			}
+			if !tt.ok && err == nil {
+				t.Fatal("expected an error, but none occurred")
+			}
+			if err != nil {
+				t.Logf("err: %v", err)
+				return
+			}
+
+			if diff := cmp.Diff(tt.t, got); diff != "" {
+				t.Fatalf("unexpected time (-want +got):\n%s", diff)
 			}
 		})
 	}
