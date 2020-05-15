@@ -184,14 +184,20 @@ func parseDevice(name string, ifio *wgh.WGInterfaceIO) (*wgtypes.Device, error) 
 		d.FirewallMark = int(ifio.Rtable)
 	}
 
-	// We know how many peers we need to allocate, so prepare the slice and set
-	// our pointer to the beginning of the first peer's location in memory.
 	d.Peers = make([]wgtypes.Peer, 0, ifio.Peers_count)
+
+	// If there were no peers, exit early so we do not advance the pointer
+	// beyond the end of the WGInterfaceIO structure.
+	if ifio.Peers_count == 0 {
+		return d, nil
+	}
+
+	// Set our pointer to the beginning of the first peer's location in memory.
 	peer := (*wgh.WGPeerIO)(unsafe.Pointer(
 		uintptr(unsafe.Pointer(ifio)) + wgh.SizeofWGInterfaceIO,
 	))
 
-	for i := uintptr(0); i < uintptr(ifio.Peers_count); i++ {
+	for i := 0; i < int(ifio.Peers_count); i++ {
 		p := parsePeer(peer)
 
 		// Same idea, we know how many allowed IPs we need to account for, so
