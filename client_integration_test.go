@@ -333,9 +333,7 @@ func testConfigurePeersUpdateOnly(t *testing.T, c *wgctrl.Client, d *wgtypes.Dev
 		}},
 	}
 
-	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
-		t.Fatalf("failed to configure first time on %q: %v", d.Name, err)
-	}
+	tryConfigure(t, c, d.Name, cfg)
 
 	// Create an updated configuration that should only apply to the existing
 	// peer due to update only flags.
