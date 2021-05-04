@@ -283,7 +283,7 @@ func TestClientDeviceNotExist(t *testing.T) {
 				},
 			}
 
-			if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+			if _, err := c.Device("wgnotexist0"); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("expected is not exist, but got: %v", err)
 			}
 		})

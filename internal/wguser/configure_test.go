@@ -1,6 +1,7 @@
 package wguser
 
 import (
+	"errors"
 	"net"
 	"os"
 	"testing"
@@ -68,10 +69,10 @@ func TestClientConfigureDeviceError(t *testing.T) {
 				t.Fatal("expected an error, but none occurred")
 			}
 
-			if !tt.notExist && os.IsNotExist(err) {
+			if !tt.notExist && errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("expected other error, but got not exist: %v", err)
 			}
-			if tt.notExist && !os.IsNotExist(err) {
+			if tt.notExist && !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("expected not exist error, but got: %v", err)
 			}
 		})

@@ -1,6 +1,7 @@
 package wgctrl_test
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -91,7 +92,7 @@ func TestIntegrationClientIsNotExist(t *testing.T) {
 	c, done := integrationClient(t)
 	defer done()
 
-	if _, err := c.Device("wgnotexist0"); !os.IsNotExist(err) {
+	if _, err := c.Device("wgnotexist0"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected is not exist error, but got: %v", err)
 	}
 }
@@ -111,7 +112,7 @@ func integrationClient(t *testing.T) (*wgctrl.Client, func()) {
 
 	c, err := wgctrl.New()
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			t.Skip("skipping, wgctrl is not available on this system")
 		}
 

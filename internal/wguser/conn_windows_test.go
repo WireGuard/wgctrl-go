@@ -3,6 +3,7 @@
 package wguser
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -18,7 +19,7 @@ var isWINE = func() bool {
 	// Reference: https://forum.winehq.org/viewtopic.php?t=4988.
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Wine`, registry.QUERY_VALUE)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			// No key; the tests don't appear to be running in WINE.
 			return false
 		}

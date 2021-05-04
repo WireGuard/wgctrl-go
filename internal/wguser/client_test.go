@@ -1,6 +1,7 @@
 package wguser
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -44,7 +45,7 @@ func TestClientDevice(t *testing.T) {
 
 			dev, err := c.Device(tt.device)
 			if err != nil {
-				if !tt.exists && os.IsNotExist(err) {
+				if !tt.exists && errors.Is(err, os.ErrNotExist) {
 					return
 				}
 

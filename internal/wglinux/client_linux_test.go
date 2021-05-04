@@ -3,6 +3,7 @@
 package wglinux
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -119,7 +120,7 @@ func TestLinuxClientIsNotExist(t *testing.T) {
 			})
 			defer c.Close()
 
-			if err := tt.fn(c); !os.IsNotExist(err) {
+			if err := tt.fn(c); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("expected is not exist, but got: %v", err)
 			}
 		})
