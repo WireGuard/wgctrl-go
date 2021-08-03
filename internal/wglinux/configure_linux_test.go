@@ -12,7 +12,6 @@ import (
 	"github.com/mdlayher/genetlink/genltest"
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
-	"github.com/mdlayher/netlink/nltest"
 	"github.com/mikioh/ipaddr"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
@@ -121,10 +120,10 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 				},
 				{
 					Type: netlink.Nested | wgh.DeviceAPeers,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+					Data: m([]netlink.Attribute{
 						{
 							Type: netlink.Nested,
-							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							Data: m([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
 									Data: keyBytes("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
@@ -156,11 +155,11 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 										wgtest.MustCIDR("192.168.4.4/32"),
 									}),
 								},
-							}),
+							}...),
 						},
 						{
 							Type: netlink.Nested | 1,
-							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							Data: m([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
 									Data: keyBytes("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
@@ -187,11 +186,11 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 										wgtest.MustCIDR("192.168.4.6/32"),
 									}),
 								},
-							}),
+							}...),
 						},
 						{
 							Type: netlink.Nested | 2,
-							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							Data: m([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
 									Data: keyBytes("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
@@ -215,11 +214,11 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 										wgtest.MustCIDR("192.168.4.11/32"),
 									}),
 								},
-							}),
+							}...),
 						},
 						{
 							Type: netlink.Nested | 3,
-							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							Data: m([]netlink.Attribute{
 								{
 									Type: wgh.PeerAPublicKey,
 									Data: keyBytes("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
@@ -228,9 +227,9 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 									Type: wgh.PeerAFlags,
 									Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
 								},
-							}),
+							}...),
 						},
-					}),
+					}...),
 				},
 			},
 			ok: true,
@@ -350,49 +349,45 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		},
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerA[:],
-						},
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
-						},
-						{
-							Type: netlink.Nested | wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerAIPs[:ipBatchChunk]),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerA[:],
+					},
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+					},
+					{
+						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Data: mustAllowedIPs(peerAIPs[:ipBatchChunk]),
+					},
+				}...),
 			}),
 		},
 		// First peer, final chunk.
 		nameAttr,
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerA[:],
-						},
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
-						},
-						// Not first chunk; don't replace IPs.
-						{
-							Type: netlink.Nested | wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerAIPs[ipBatchChunk:]),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerA[:],
+					},
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+					},
+					// Not first chunk; don't replace IPs.
+					{
+						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Data: mustAllowedIPs(peerAIPs[ipBatchChunk:]),
+					},
+				}...),
 			}),
 		},
 		// Second peer, only chunk.
@@ -400,24 +395,22 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// This is not the first peer; don't replace existing peers.
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerB[:],
-						},
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
-						},
-						{
-							Type: netlink.Nested | wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerBIPs),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerB[:],
+					},
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+					},
+					{
+						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Data: mustAllowedIPs(peerBIPs),
+					},
+				}...),
 			}),
 		},
 		// Third peer, first chunk.
@@ -425,95 +418,87 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// This is not the first peer; don't replace existing peers.
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerC[:],
-						},
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
-						},
-						{
-							Type: netlink.Nested | wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerCIPs[:ipBatchChunk]),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerC[:],
+					},
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+					},
+					{
+						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Data: mustAllowedIPs(peerCIPs[:ipBatchChunk]),
+					},
+				}...),
 			}),
 		},
 		// Third peer, second chunk.
 		nameAttr,
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerC[:],
-						},
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
-						},
-						// Not first chunk; don't replace IPs.
-						{
-							Type: netlink.Nested | wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerCIPs[ipBatchChunk : ipBatchChunk*2]),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerC[:],
+					},
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+					},
+					// Not first chunk; don't replace IPs.
+					{
+						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Data: mustAllowedIPs(peerCIPs[ipBatchChunk : ipBatchChunk*2]),
+					},
+				}...),
 			}),
 		},
 		// Third peer, final chunk.
 		nameAttr,
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerC[:],
-						},
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
-						},
-						// Not first chunk; don't replace IPs.
-						{
-							Type: netlink.Nested | wgh.PeerAAllowedips,
-							Data: mustAllowedIPs(peerCIPs[ipBatchChunk*2:]),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerC[:],
+					},
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+					},
+					// Not first chunk; don't replace IPs.
+					{
+						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Data: mustAllowedIPs(peerCIPs[ipBatchChunk*2:]),
+					},
+				}...),
 			}),
 		},
 		// Fourth peer, only chunk.
 		nameAttr,
 		{
 			Type: netlink.Nested | wgh.DeviceAPeers,
-			Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-				{
-					Type: netlink.Nested,
-					Data: nltest.MustMarshalAttributes([]netlink.Attribute{
-						{
-							Type: wgh.PeerAPublicKey,
-							Data: peerD[:],
-						},
-						// Not first chunk; don't replace IPs.
-						{
-							Type: wgh.PeerAFlags,
-							Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
-						},
-					}),
-				},
+			Data: m(netlink.Attribute{
+				Type: netlink.Nested,
+				Data: m([]netlink.Attribute{
+					{
+						Type: wgh.PeerAPublicKey,
+						Data: peerD[:],
+					},
+					// Not first chunk; don't replace IPs.
+					{
+						Type: wgh.PeerAFlags,
+						Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
+					},
+				}...),
 			}),
 		},
 	}

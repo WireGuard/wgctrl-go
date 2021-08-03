@@ -219,10 +219,10 @@ func Test_parseRTNLInterfaces(t *testing.T) {
 						},
 						{
 							Type: unix.IFLA_LINKINFO,
-							Data: nltest.MustMarshalAttributes([]netlink.Attribute{{
+							Data: m(netlink.Attribute{
 								Type: unix.IFLA_INFO_KIND,
 								Data: nlenc.Bytes("bridge"),
-							}}),
+							}),
 						},
 					}),
 				},
@@ -238,7 +238,7 @@ func Test_parseRTNLInterfaces(t *testing.T) {
 						},
 						{
 							Type: unix.IFLA_LINKINFO,
-							Data: nltest.MustMarshalAttributes([]netlink.Attribute{
+							Data: m([]netlink.Attribute{
 								// Random junk to skip.
 								{
 									Type: 255,
@@ -248,7 +248,7 @@ func Test_parseRTNLInterfaces(t *testing.T) {
 									Type: unix.IFLA_INFO_KIND,
 									Data: nlenc.Bytes(wgKind),
 								},
-							}),
+							}...),
 						},
 					}),
 				},
@@ -327,7 +327,7 @@ func diffAttrs(x, y []netlink.Attribute) string {
 
 func mustAllowedIPs(ipns []net.IPNet) []byte {
 	ae := netlink.NewAttributeEncoder()
-	if err := encodeAllowedIPs(ae, ipns); err != nil {
+	if err := encodeAllowedIPs(ipns)(ae); err != nil {
 		panicf("failed to create allowed IP attributes: %v", err)
 	}
 
@@ -338,6 +338,8 @@ func mustAllowedIPs(ipns []net.IPNet) []byte {
 
 	return b
 }
+
+func m(attrs ...netlink.Attribute) []byte { return nltest.MustMarshalAttributes(attrs) }
 
 func durPtr(d time.Duration) *time.Duration { return &d }
 func keyPtr(k wgtypes.Key) *wgtypes.Key     { return &k }
