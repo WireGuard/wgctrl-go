@@ -1,4 +1,4 @@
-//+build !linux,!openbsd
+//+build !linux,!openbsd,!windows
 
 package wgctrl
 
