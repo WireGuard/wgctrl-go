@@ -1,11 +1,12 @@
-//+build windows
+//go:build windows
+// +build windows
 
 package wgctrl
 
 import (
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wgwindows"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wguser"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wgwindows"
 )
 
 // newClients configures wginternal.Clients for Windows systems.

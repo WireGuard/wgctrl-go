@@ -1,4 +1,5 @@
-//+build ignore
+//go:build ignore
+// +build ignore
 
 // TODO(mdlayher): attempt to integrate into x/sys/unix infrastructure.
 
