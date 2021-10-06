@@ -22,8 +22,6 @@ type Client struct {
 	lastLenGuess   uint32
 }
 
-const hardwareId = "wireguard"
-
 var (
 	deviceClassNetGUID     = windows.GUID{0x4d36e972, 0xe325, 0x11ce, [8]byte{0xbf, 0xc1, 0x08, 0x00, 0x2b, 0xe1, 0x03, 0x18}}
 	deviceInterfaceNetGUID = windows.GUID{0xcac88484, 0x7515, 0x4c03, [8]byte{0x82, 0xe6, 0x71, 0xa8, 0x7a, 0xba, 0xc3, 0x61}}
@@ -33,9 +31,17 @@ var (
 	}
 )
 
+var enumerator = `SWD\WireGuard`
+
+func init() {
+	if maj, min, _ := windows.RtlGetNtVersionNumbers(); (maj == 6 && min <= 1) || maj < 6 {
+		enumerator = `ROOT\WIREGUARD`
+	}
+}
+
 func (c *Client) refreshInstanceIdCache() error {
 	cachedAdapters := make(map[string]string, 5)
-	devInfo, err := setupapi.SetupDiGetClassDevsEx(&deviceClassNetGUID, "", 0, setupapi.DIGCF_PRESENT, 0, "")
+	devInfo, err := setupapi.SetupDiGetClassDevsEx(&deviceClassNetGUID, enumerator, 0, setupapi.DIGCF_PRESENT, 0, "")
 	if err != nil {
 		return err
 	}
@@ -46,22 +52,6 @@ func (c *Client) refreshInstanceIdCache() error {
 			if err == windows.ERROR_NO_MORE_ITEMS {
 				break
 			}
-			continue
-		}
-		prop, err := setupapi.SetupDiGetDeviceRegistryProperty(devInfo, devInfoData, setupapi.SPDRP_HARDWAREID)
-		if err != nil {
-			continue
-		}
-		found := false
-		if hardwareIDs, ok := prop.([]string); ok {
-			for _, id := range hardwareIDs {
-				if strings.EqualFold(id, hardwareId) {
-					found = true
-					break
-				}
-			}
-		}
-		if !found {
 			continue
 		}
 		prop, err = setupapi.SetupDiGetDeviceProperty(devInfo, devInfoData, &devpkeyWgName)
