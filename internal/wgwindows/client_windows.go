@@ -284,17 +284,20 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		b.AppendPeer(peer)
 		for j := range cfg.Peers[i].AllowedIPs {
 			var family ioctl.AddressFamily
-			if cfg.Peers[i].AllowedIPs[j].IP.To4() != nil {
+			var ip net.IP
+			if ip = cfg.Peers[i].AllowedIPs[j].IP.To4(); ip != nil {
 				family = windows.AF_INET
-			} else {
+			} else if ip = cfg.Peers[i].AllowedIPs[j].IP.To16(); ip != nil {
 				family = windows.AF_INET6
+			} else {
+				ip = cfg.Peers[i].AllowedIPs[j].IP
 			}
 			cidr, _ := cfg.Peers[i].AllowedIPs[j].Mask.Size()
 			a := &ioctl.AllowedIP{
 				AddressFamily: family,
 				Cidr:          uint8(cidr),
 			}
-			copy(a.Address[:], cfg.Peers[i].AllowedIPs[j].IP)
+			copy(a.Address[:], ip)
 			b.AppendAllowedIP(a)
 		}
 	}
