@@ -2,6 +2,7 @@ package wgwindows
 
 import (
 	"net"
+	"os"
 	"strings"
 	"time"
 	"unsafe"
@@ -95,7 +96,7 @@ func (c *Client) interfaceHandle(name string) (windows.Handle, error) {
 		}
 		instanceId, ok = c.cachedAdapters[name]
 		if !ok {
-			return 0, windows.ERROR_NDIS_ADAPTER_NOT_FOUND
+			return 0, os.ErrNotExist
 		}
 	}
 	interfaces, err := setupapi.CM_Get_Device_Interface_List(instanceId, &deviceInterfaceNetGUID, setupapi.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
