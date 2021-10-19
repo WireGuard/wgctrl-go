@@ -3,7 +3,6 @@ package wgwindows
 import (
 	"net"
 	"os"
-	"strings"
 	"time"
 	"unsafe"
 
@@ -54,7 +53,7 @@ func (c *Client) refreshInstanceIdCache() error {
 			}
 			continue
 		}
-		prop, err = setupapi.SetupDiGetDeviceProperty(devInfo, devInfoData, &devpkeyWgName)
+		prop, err := setupapi.SetupDiGetDeviceProperty(devInfo, devInfoData, &devpkeyWgName)
 		if err != nil {
 			continue
 		}
