@@ -254,7 +254,7 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 			peer.Flags |= ioctl.PeerReplaceAllowedIPs
 		}
 		if cfg.Peers[i].UpdateOnly {
-			peer.Flags |= ioctl.PeerUpdate
+			peer.Flags |= ioctl.PeerUpdateOnly
 		}
 		if cfg.Peers[i].Remove {
 			peer.Flags |= ioctl.PeerRemove
