@@ -23,11 +23,8 @@ const (
 	CONFIGMG_VERSION    = 0x0400
 )
 
-//
-// Define maximum string length constants
-//
+// Maximum string length constants
 const (
-	ANYSIZE_ARRAY               = 1
 	LINE_LEN                    = 256  // Windows 9x-compatible maximum for displayable strings coming from a device INF.
 	MAX_INF_STRING_LENGTH       = 4096 // Actual maximum size of an INF string (including string substitutions).
 	MAX_INF_SECTION_NAME_LENGTH = 255  // For Windows 9x compatibility, INF section names should be constrained to 32 characters.
@@ -49,20 +46,31 @@ type HSPFILEQ uintptr
 // DevInfo holds reference to device information set
 type DevInfo windows.Handle
 
+// DEVINST is a handle usually recognized by cfgmgr32 APIs
+type DEVINST uint32
+
 // DevInfoData is a device information structure (references a device instance that is a member of a device information set)
 type DevInfoData struct {
 	size      uint32
 	ClassGUID windows.GUID
-	DevInst   uint32 // DEVINST handle
+	DevInst   DEVINST
 	_         uintptr
 }
 
 // DevInfoListDetailData is a structure for detailed information on a device information set (used for SetupDiGetDeviceInfoListDetail which supersedes the functionality of SetupDiGetDeviceInfoListClass).
 type DevInfoListDetailData struct {
-	size                uint32 // Warning: unsafe.Sizeof(DevInfoListDetailData) > sizeof(SP_DEVINFO_LIST_DETAIL_DATA) when GOARCH == 386 => use sizeofDevInfoListDetailData const.
+	size                uint32 // Use unsafeSizeOf method
 	ClassGUID           windows.GUID
 	RemoteMachineHandle windows.Handle
 	remoteMachineName   [SP_MAX_MACHINENAME_LENGTH]uint16
+}
+
+func (*DevInfoListDetailData) unsafeSizeOf() uint32 {
+	if unsafe.Sizeof(uintptr(0)) == 4 {
+		// Windows declares this with pshpack1.h
+		return uint32(unsafe.Offsetof(DevInfoListDetailData{}.remoteMachineName) + unsafe.Sizeof(DevInfoListDetailData{}.remoteMachineName))
+	}
+	return uint32(unsafe.Sizeof(DevInfoListDetailData{}))
 }
 
 func (data *DevInfoListDetailData) RemoteMachineName() string {
@@ -389,7 +397,7 @@ func (data *DrvInfoData) IsNewer(driverDate windows.Filetime, driverVersion uint
 
 // DrvInfoDetailData is driver information details structure (provides detailed information about a particular driver information structure)
 type DrvInfoDetailData struct {
-	size            uint32 // Warning: unsafe.Sizeof(DrvInfoDetailData) > sizeof(SP_DRVINFO_DETAIL_DATA) when GOARCH == 386 => use sizeofDrvInfoDetailData const.
+	size            uint32 // Use unsafeSizeOf method
 	InfDate         windows.Filetime
 	compatIDsOffset uint32
 	compatIDsLength uint32
@@ -397,7 +405,15 @@ type DrvInfoDetailData struct {
 	sectionName     [LINE_LEN]uint16
 	infFileName     [windows.MAX_PATH]uint16
 	drvDescription  [LINE_LEN]uint16
-	hardwareID      [ANYSIZE_ARRAY]uint16
+	hardwareID      [1]uint16
+}
+
+func (*DrvInfoDetailData) unsafeSizeOf() uint32 {
+	if unsafe.Sizeof(uintptr(0)) == 4 {
+		// Windows declares this with pshpack1.h
+		return uint32(unsafe.Offsetof(DrvInfoDetailData{}.hardwareID) + unsafe.Sizeof(DrvInfoDetailData{}.hardwareID))
+	}
+	return uint32(unsafe.Sizeof(DrvInfoDetailData{}))
 }
 
 func (data *DrvInfoDetailData) SectionName() string {
@@ -473,11 +489,9 @@ const (
 	DICD_INHERIT_CLASSDRVS DICD = 0x00000002
 )
 
-//
 // SPDIT flags to distinguish between class drivers and
-// device drivers.
-// (Passed in 'DriverType' parameter of driver information list APIs)
-//
+// device drivers. (Passed in 'DriverType' parameter of
+// driver information list APIs)
 type SPDIT uint32
 
 const (
@@ -506,7 +520,6 @@ const (
 	DIREG_BOTH DIREG = 0x00000004 // Delete both driver and Device key
 )
 
-//
 // SPDRP specifies device registry property codes
 // (Codes marked as read-only (R) may only be used for
 // SetupDiGetDeviceRegistryProperty)
@@ -515,7 +528,6 @@ const (
 // as defined by the CM_DRP codes in cfgmgr32.h.
 //
 // Note that SPDRP codes are zero based while CM_DRP codes are one based!
-//
 type SPDRP uint32
 
 const (

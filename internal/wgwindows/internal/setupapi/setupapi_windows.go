@@ -35,7 +35,7 @@ func SetupDiCreateDeviceInfoListEx(classGUID *windows.GUID, hwndParent uintptr, 
 // SetupDiGetDeviceInfoListDetail function retrieves information associated with a device information set including the class GUID, remote computer handle, and remote computer name.
 func SetupDiGetDeviceInfoListDetail(deviceInfoSet DevInfo) (deviceInfoSetDetailData *DevInfoListDetailData, err error) {
 	data := &DevInfoListDetailData{}
-	data.size = sizeofDevInfoListDetailData
+	data.size = data.unsafeSizeOf()
 
 	return data, setupDiGetDeviceInfoListDetail(deviceInfoSet, data)
 }
@@ -155,7 +155,7 @@ func SetupDiGetDriverInfoDetail(deviceInfoSet DevInfo, deviceInfoData *DevInfoDa
 	for {
 		buf := make([]byte, reqSize)
 		data := (*DrvInfoDetailData)(unsafe.Pointer(&buf[0]))
-		data.size = sizeofDrvInfoDetailData
+		data.size = data.unsafeSizeOf()
 		err := setupDiGetDriverInfoDetail(deviceInfoSet, deviceInfoData, driverInfoData, data, uint32(len(buf)), &reqSize)
 		if err == windows.ERROR_INSUFFICIENT_BUFFER {
 			continue
@@ -531,4 +531,4 @@ func CM_Get_Device_Interface_List(deviceID string, interfaceClass *windows.GUID,
 	return interfaces, nil
 }
 
-//sys CM_Get_DevNode_Status(status *uint32, problemNumber *uint32, devInst uint32, flags uint32) (ret uint32) = CfgMgr32.CM_Get_DevNode_Status
+//sys CM_Get_DevNode_Status(status *uint32, problemNumber *uint32, devInst DEVINST, flags uint32) (ret uint32) = CfgMgr32.CM_Get_DevNode_Status

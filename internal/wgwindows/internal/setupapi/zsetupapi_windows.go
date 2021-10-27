@@ -73,7 +73,7 @@ var (
 	procSetupDiSetSelectedDriverW          = modsetupapi.NewProc("SetupDiSetSelectedDriverW")
 )
 
-func CM_Get_DevNode_Status(status *uint32, problemNumber *uint32, devInst uint32, flags uint32) (ret uint32) {
+func CM_Get_DevNode_Status(status *uint32, problemNumber *uint32, devInst DEVINST, flags uint32) (ret uint32) {
 	r0, _, _ := syscall.Syscall6(procCM_Get_DevNode_Status.Addr(), 4, uintptr(unsafe.Pointer(status)), uintptr(unsafe.Pointer(problemNumber)), uintptr(devInst), uintptr(flags), 0, 0)
 	ret = uint32(r0)
 	return
