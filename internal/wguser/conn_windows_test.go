@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows/registry"
-	"golang.zx2c4.com/wireguard/ipc/winpipe"
+	"golang.zx2c4.com/wireguard/ipc/namedpipe"
 )
 
 // isWINE determines if this test is running in WINE.
@@ -54,7 +54,7 @@ func testListen(t *testing.T, device string) (l net.Listener, dir string, done f
 	// Attempt to create a unique name and avoid collisions.
 	dir = fmt.Sprintf(`wguser-test%d\`, time.Now().Nanosecond())
 
-	l, err := winpipe.Listen(pipePrefix+dir+device, nil)
+	l, err := namedpipe.Listen(pipePrefix + dir + device)
 	if err != nil {
 		t.Fatalf("failed to create Windows named pipe: %v", err)
 	}
