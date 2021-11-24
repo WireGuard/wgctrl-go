@@ -8,8 +8,8 @@ require (
 	github.com/mdlayher/netlink v1.4.1
 	github.com/mdlayher/socket v0.0.0-20211102153432-57e3fa563ecb // indirect
 	github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
-	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
-	golang.org/x/net v0.0.0-20211108170745-6635138e15ea // indirect
-	golang.org/x/sys v0.0.0-20211109184856-51b60fd695b3
-	golang.zx2c4.com/wireguard v0.0.0-20211109020618-685490f568cf
+	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
+	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9 // indirect
+	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881
+	golang.zx2c4.com/wireguard v0.0.0-20211123210315-387f7c461a16
 )
