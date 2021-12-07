@@ -236,6 +236,7 @@ func (c *testClient) Devices() ([]*wgtypes.Device, error) { return c.DevicesFunc
 func (c *testClient) Device(name string) (*wgtypes.Device, error) {
 	return c.DeviceFunc(name)
 }
+
 func (c *testClient) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	return c.ConfigureDeviceFunc(name, cfg)
 }
