@@ -10,4 +10,5 @@ require (
 	golang.org/x/crypto v0.0.0-20211202192323-5770296d904e
 	golang.org/x/sys v0.0.0-20211205182925-97ca703d548d
 	golang.zx2c4.com/wireguard v0.0.0-20211129173154-2dd424e2d808
+	honnef.co/go/tools v0.2.2
 )
