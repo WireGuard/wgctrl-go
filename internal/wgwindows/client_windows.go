@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgwindows/internal/ioctl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -62,7 +63,7 @@ func (c *Client) refreshInstanceIdCache() error {
 		}
 		var status, problemCode uint32
 		ret := windows.CM_Get_DevNode_Status(&status, &problemCode, devInfoData.DevInst, 0)
-		if ret != windows.CR_SUCCESS || (status&windows.DN_DRIVER_LOADED|windows.DN_STARTED) != windows.DN_DRIVER_LOADED|windows.DN_STARTED {
+		if ret != nil || (status&windows.DN_DRIVER_LOADED|windows.DN_STARTED) != windows.DN_DRIVER_LOADED|windows.DN_STARTED {
 			continue
 		}
 		instanceId, err := windows.SetupDiGetDeviceInstanceId(devInfo, devInfoData)
