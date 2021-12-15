@@ -20,7 +20,6 @@ import (
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mdlayher/netlink/nltest"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -285,8 +284,8 @@ const familyID = 20
 func testClient(t *testing.T, fn genltest.Func) *Client {
 	family := genetlink.Family{
 		ID:      familyID,
-		Version: wgh.GenlVersion,
-		Name:    wgh.GenlName,
+		Version: unix.WG_GENL_VERSION,
+		Name:    unix.WG_GENL_NAME,
 	}
 
 	conn := genltest.Dial(genltest.ServeFamily(family, fn))

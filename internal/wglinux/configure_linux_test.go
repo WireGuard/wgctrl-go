@@ -15,14 +15,13 @@ import (
 	"github.com/mdlayher/netlink/nlenc"
 	"github.com/mikioh/ipaddr"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgtest"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func TestLinuxClientConfigureDevice(t *testing.T) {
 	nameAttr := netlink.Attribute{
-		Type: wgh.DeviceAIfname,
+		Type: unix.WGDEVICE_A_IFNAME,
 		Data: nlenc.Bytes(okName),
 	}
 
@@ -104,41 +103,41 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 			attrs: []netlink.Attribute{
 				nameAttr,
 				{
-					Type: wgh.DeviceAPrivateKey,
+					Type: unix.WGDEVICE_A_PRIVATE_KEY,
 					Data: keyBytes("e84b5a6d2717c1003a13b431570353dbaca9146cf150c5f8575680feba52027a"),
 				},
 				{
-					Type: wgh.DeviceAListenPort,
+					Type: unix.WGDEVICE_A_LISTEN_PORT,
 					Data: nlenc.Uint16Bytes(12912),
 				},
 				{
-					Type: wgh.DeviceAFwmark,
+					Type: unix.WGDEVICE_A_FWMARK,
 					Data: nlenc.Uint32Bytes(0),
 				},
 				{
-					Type: wgh.DeviceAFlags,
-					Data: nlenc.Uint32Bytes(wgh.DeviceFReplacePeers),
+					Type: unix.WGDEVICE_A_FLAGS,
+					Data: nlenc.Uint32Bytes(unix.WGDEVICE_F_REPLACE_PEERS),
 				},
 				{
-					Type: netlink.Nested | wgh.DeviceAPeers,
+					Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 					Data: m([]netlink.Attribute{
 						{
 							Type: netlink.Nested,
 							Data: m([]netlink.Attribute{
 								{
-									Type: wgh.PeerAPublicKey,
+									Type: unix.WGPEER_A_PUBLIC_KEY,
 									Data: keyBytes("b85996fecc9c7f1fc6d2572a76eda11d59bcd20be8e543b15ce4bd85a8e75a33"),
 								},
 								{
-									Type: wgh.PeerAFlags,
-									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+									Type: unix.WGPEER_A_FLAGS,
+									Data: nlenc.Uint32Bytes(unix.WGPEER_F_REPLACE_ALLOWEDIPS),
 								},
 								{
-									Type: wgh.PeerAPresharedKey,
+									Type: unix.WGPEER_A_PRESHARED_KEY,
 									Data: keyBytes("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52"),
 								},
 								{
-									Type: wgh.PeerAEndpoint,
+									Type: unix.WGPEER_A_ENDPOINT,
 									Data: (*(*[unix.SizeofSockaddrInet6]byte)(unsafe.Pointer(&unix.RawSockaddrInet6{
 										Family: unix.AF_INET6,
 										Addr: [16]byte{
@@ -151,7 +150,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 									})))[:],
 								},
 								{
-									Type: netlink.Nested | wgh.PeerAAllowedips,
+									Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 									Data: mustAllowedIPs([]net.IPNet{
 										wgtest.MustCIDR("192.168.4.4/32"),
 									}),
@@ -162,15 +161,15 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Type: netlink.Nested | 1,
 							Data: m([]netlink.Attribute{
 								{
-									Type: wgh.PeerAPublicKey,
+									Type: unix.WGPEER_A_PUBLIC_KEY,
 									Data: keyBytes("58402e695ba1772b1cc9309755f043251ea77fdcf10fbe63989ceb7e19321376"),
 								},
 								{
-									Type: wgh.PeerAFlags,
-									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+									Type: unix.WGPEER_A_FLAGS,
+									Data: nlenc.Uint32Bytes(unix.WGPEER_F_REPLACE_ALLOWEDIPS | unix.WGPEER_F_UPDATE_ONLY),
 								},
 								{
-									Type: wgh.PeerAEndpoint,
+									Type: unix.WGPEER_A_ENDPOINT,
 									Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
 										Family: unix.AF_INET,
 										Addr:   [4]byte{182, 122, 22, 19},
@@ -178,11 +177,11 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 									})))[:],
 								},
 								{
-									Type: wgh.PeerAPersistentKeepaliveInterval,
+									Type: unix.WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL,
 									Data: nlenc.Uint16Bytes(111),
 								},
 								{
-									Type: netlink.Nested | wgh.PeerAAllowedips,
+									Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 									Data: mustAllowedIPs([]net.IPNet{
 										wgtest.MustCIDR("192.168.4.6/32"),
 									}),
@@ -193,15 +192,15 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Type: netlink.Nested | 2,
 							Data: m([]netlink.Attribute{
 								{
-									Type: wgh.PeerAPublicKey,
+									Type: unix.WGPEER_A_PUBLIC_KEY,
 									Data: keyBytes("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
 								},
 								{
-									Type: wgh.PeerAFlags,
-									Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips),
+									Type: unix.WGPEER_A_FLAGS,
+									Data: nlenc.Uint32Bytes(unix.WGPEER_F_REPLACE_ALLOWEDIPS),
 								},
 								{
-									Type: wgh.PeerAEndpoint,
+									Type: unix.WGPEER_A_ENDPOINT,
 									Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
 										Family: unix.AF_INET,
 										Addr:   [4]byte{5, 152, 198, 39},
@@ -209,7 +208,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 									})))[:],
 								},
 								{
-									Type: netlink.Nested | wgh.PeerAAllowedips,
+									Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 									Data: mustAllowedIPs([]net.IPNet{
 										wgtest.MustCIDR("192.168.4.10/32"),
 										wgtest.MustCIDR("192.168.4.11/32"),
@@ -221,12 +220,12 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 							Type: netlink.Nested | 3,
 							Data: m([]netlink.Attribute{
 								{
-									Type: wgh.PeerAPublicKey,
+									Type: unix.WGPEER_A_PUBLIC_KEY,
 									Data: keyBytes("e818b58db5274087fcc1be5dc728cf53d3b5726b4cef6b9bab8f8f8c2452c25c"),
 								},
 								{
-									Type: wgh.PeerAFlags,
-									Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
+									Type: unix.WGPEER_A_FLAGS,
+									Data: nlenc.Uint32Bytes(unix.WGPEER_F_REMOVE_ME),
 								},
 							}...),
 						},
@@ -240,7 +239,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			const (
-				cmd   = wgh.CmdSetDevice
+				cmd   = unix.WG_CMD_SET_DEVICE
 				flags = netlink.Request | netlink.Acknowledge
 			)
 
@@ -275,7 +274,7 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 
 func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 	nameAttr := netlink.Attribute{
-		Type: wgh.DeviceAIfname,
+		Type: unix.WGDEVICE_A_IFNAME,
 		Data: nlenc.Bytes(okName),
 	}
 
@@ -345,24 +344,24 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// First peer, first chunk.
 		nameAttr,
 		{
-			Type: wgh.DeviceAFlags,
-			Data: nlenc.Uint32Bytes(wgh.DeviceFReplacePeers),
+			Type: unix.WGDEVICE_A_FLAGS,
+			Data: nlenc.Uint32Bytes(unix.WGDEVICE_F_REPLACE_PEERS),
 		},
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerA[:],
 					},
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_REPLACE_ALLOWEDIPS | unix.WGPEER_F_UPDATE_ONLY),
 					},
 					{
-						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 						Data: mustAllowedIPs(peerAIPs[:ipBatchChunk]),
 					},
 				}...),
@@ -371,21 +370,21 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// First peer, final chunk.
 		nameAttr,
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerA[:],
 					},
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_UPDATE_ONLY),
 					},
 					// Not first chunk; don't replace IPs.
 					{
-						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 						Data: mustAllowedIPs(peerAIPs[ipBatchChunk:]),
 					},
 				}...),
@@ -395,20 +394,20 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		nameAttr,
 		// This is not the first peer; don't replace existing peers.
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerB[:],
 					},
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_REPLACE_ALLOWEDIPS | unix.WGPEER_F_UPDATE_ONLY),
 					},
 					{
-						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 						Data: mustAllowedIPs(peerBIPs),
 					},
 				}...),
@@ -418,20 +417,20 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		nameAttr,
 		// This is not the first peer; don't replace existing peers.
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerC[:],
 					},
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFReplaceAllowedips | wgh.PeerFUpdateOnly),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_REPLACE_ALLOWEDIPS | unix.WGPEER_F_UPDATE_ONLY),
 					},
 					{
-						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 						Data: mustAllowedIPs(peerCIPs[:ipBatchChunk]),
 					},
 				}...),
@@ -440,21 +439,21 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// Third peer, second chunk.
 		nameAttr,
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerC[:],
 					},
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_UPDATE_ONLY),
 					},
 					// Not first chunk; don't replace IPs.
 					{
-						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 						Data: mustAllowedIPs(peerCIPs[ipBatchChunk : ipBatchChunk*2]),
 					},
 				}...),
@@ -463,21 +462,21 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// Third peer, final chunk.
 		nameAttr,
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerC[:],
 					},
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFUpdateOnly),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_UPDATE_ONLY),
 					},
 					// Not first chunk; don't replace IPs.
 					{
-						Type: netlink.Nested | wgh.PeerAAllowedips,
+						Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
 						Data: mustAllowedIPs(peerCIPs[ipBatchChunk*2:]),
 					},
 				}...),
@@ -486,18 +485,18 @@ func TestLinuxClientConfigureDeviceLargePeerIPChunks(t *testing.T) {
 		// Fourth peer, only chunk.
 		nameAttr,
 		{
-			Type: netlink.Nested | wgh.DeviceAPeers,
+			Type: netlink.Nested | unix.WGDEVICE_A_PEERS,
 			Data: m(netlink.Attribute{
 				Type: netlink.Nested,
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.PeerAPublicKey,
+						Type: unix.WGPEER_A_PUBLIC_KEY,
 						Data: peerD[:],
 					},
 					// Not first chunk; don't replace IPs.
 					{
-						Type: wgh.PeerAFlags,
-						Data: nlenc.Uint32Bytes(wgh.PeerFRemoveMe),
+						Type: unix.WGPEER_A_FLAGS,
+						Data: nlenc.Uint32Bytes(unix.WGPEER_F_REMOVE_ME),
 					},
 				}...),
 			}),

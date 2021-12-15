@@ -16,7 +16,6 @@ import (
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgtest"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -30,11 +29,11 @@ func TestLinuxClientDevicesError(t *testing.T) {
 			name: "bad peer endpoint",
 			msgs: []genetlink.Message{{
 				Data: m(netlink.Attribute{
-					Type: wgh.DeviceAPeers,
+					Type: unix.WGDEVICE_A_PEERS,
 					Data: m(netlink.Attribute{
 						Type: 0,
 						Data: m(netlink.Attribute{
-							Type: wgh.PeerAEndpoint,
+							Type: unix.WGPEER_A_ENDPOINT,
 							Data: []byte{0xff},
 						}),
 					}),
@@ -45,11 +44,11 @@ func TestLinuxClientDevicesError(t *testing.T) {
 			name: "bad peer last handshake time",
 			msgs: []genetlink.Message{{
 				Data: m(netlink.Attribute{
-					Type: wgh.DeviceAPeers,
+					Type: unix.WGDEVICE_A_PEERS,
 					Data: m(netlink.Attribute{
 						Type: 0,
 						Data: m(netlink.Attribute{
-							Type: wgh.PeerALastHandshakeTime,
+							Type: unix.WGPEER_A_LAST_HANDSHAKE_TIME,
 							Data: []byte{0xff},
 						}),
 					}),
@@ -60,15 +59,15 @@ func TestLinuxClientDevicesError(t *testing.T) {
 			name: "bad peer allowed IPs IP",
 			msgs: []genetlink.Message{{
 				Data: m(netlink.Attribute{
-					Type: wgh.DeviceAPeers,
+					Type: unix.WGDEVICE_A_PEERS,
 					Data: m(netlink.Attribute{
 						Type: 0,
 						Data: m(netlink.Attribute{
-							Type: wgh.PeerAAllowedips,
+							Type: unix.WGPEER_A_ALLOWEDIPS,
 							Data: m(netlink.Attribute{
 								Type: 0,
 								Data: m(netlink.Attribute{
-									Type: wgh.AllowedipAIpaddr,
+									Type: unix.WGALLOWEDIP_A_IPADDR,
 									Data: []byte{0xff},
 								}),
 							}),
@@ -127,11 +126,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				{{
 					Data: m([]netlink.Attribute{
 						{
-							Type: wgh.DeviceAIfindex,
+							Type: unix.WGDEVICE_A_IFINDEX,
 							Data: nlenc.Uint32Bytes(okIndex),
 						},
 						{
-							Type: wgh.DeviceAIfname,
+							Type: unix.WGDEVICE_A_IFNAME,
 							Data: nlenc.Bytes(okName),
 						},
 					}...),
@@ -139,11 +138,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				{{
 					Data: m([]netlink.Attribute{
 						{
-							Type: wgh.DeviceAIfindex,
+							Type: unix.WGDEVICE_A_IFINDEX,
 							Data: nlenc.Uint32Bytes(testIndex),
 						},
 						{
-							Type: wgh.DeviceAIfname,
+							Type: unix.WGDEVICE_A_IFNAME,
 							Data: nlenc.Bytes(testName),
 						},
 					}...),
@@ -165,78 +164,78 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 			msgs: [][]genetlink.Message{{{
 				Data: m([]netlink.Attribute{
 					{
-						Type: wgh.DeviceAIfindex,
+						Type: unix.WGDEVICE_A_IFINDEX,
 						Data: nlenc.Uint32Bytes(okIndex),
 					},
 					{
-						Type: wgh.DeviceAIfname,
+						Type: unix.WGDEVICE_A_IFNAME,
 						Data: nlenc.Bytes(okName),
 					},
 					{
-						Type: wgh.DeviceAPrivateKey,
+						Type: unix.WGDEVICE_A_PRIVATE_KEY,
 						Data: testKey[:],
 					},
 					{
-						Type: wgh.DeviceAPublicKey,
+						Type: unix.WGDEVICE_A_PUBLIC_KEY,
 						Data: testKey[:],
 					},
 					{
-						Type: wgh.DeviceAListenPort,
+						Type: unix.WGDEVICE_A_LISTEN_PORT,
 						Data: nlenc.Uint16Bytes(5555),
 					},
 					{
-						Type: wgh.DeviceAFwmark,
+						Type: unix.WGDEVICE_A_FWMARK,
 						Data: nlenc.Uint32Bytes(0xff),
 					},
 					{
-						Type: wgh.DeviceAPeers,
+						Type: unix.WGDEVICE_A_PEERS,
 						Data: m([]netlink.Attribute{
 							{
 								Type: 0,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: testKey[:],
 									},
 									{
-										Type: wgh.PeerAPresharedKey,
+										Type: unix.WGPEER_A_PRESHARED_KEY,
 										Data: testKey[:],
 									},
 									{
-										Type: wgh.PeerAEndpoint,
+										Type: unix.WGPEER_A_ENDPOINT,
 										Data: (*(*[unix.SizeofSockaddrInet4]byte)(unsafe.Pointer(&unix.RawSockaddrInet4{
 											Addr: [4]byte{192, 168, 1, 1},
 											Port: sockaddrPort(1111),
 										})))[:],
 									},
 									{
-										Type: wgh.PeerAPersistentKeepaliveInterval,
+										Type: unix.WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL,
 										Data: nlenc.Uint16Bytes(10),
 									},
 									{
-										Type: wgh.PeerALastHandshakeTime,
+										Type: unix.WGPEER_A_LAST_HANDSHAKE_TIME,
 										Data: (*(*[sizeofTimespec64]byte)(unsafe.Pointer(&timespec64{
 											Sec:  10,
 											Nsec: 20,
 										})))[:],
 									},
 									{
-										Type: wgh.PeerARxBytes,
+										Type: unix.WGPEER_A_RX_BYTES,
 										Data: nlenc.Uint64Bytes(100),
 									},
 									{
-										Type: wgh.PeerATxBytes,
+										Type: unix.WGPEER_A_TX_BYTES,
 										Data: nlenc.Uint64Bytes(200),
 									},
 									{
-										Type: wgh.PeerAAllowedips,
+										Type: unix.WGPEER_A_ALLOWEDIPS,
 										Data: mustAllowedIPs([]net.IPNet{
 											wgtest.MustCIDR("192.168.1.10/32"),
 											wgtest.MustCIDR("fd00::1/128"),
 										}),
 									},
 									{
-										Type: wgh.PeerAProtocolVersion,
+										Type: unix.WGPEER_A_PROTOCOL_VERSION,
 										Data: nlenc.Uint32Bytes(1),
 									},
 								}...),
@@ -246,11 +245,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 								Type: 1,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: testKey[:],
 									},
 									{
-										Type: wgh.PeerAEndpoint,
+										Type: unix.WGPEER_A_ENDPOINT,
 										Data: (*(*[unix.SizeofSockaddrInet6]byte)(unsafe.Pointer(&unix.RawSockaddrInet6{
 											Addr: [16]byte{
 												0xfe, 0x80, 0x00, 0x00,
@@ -311,24 +310,24 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				{
 					Data: m([]netlink.Attribute{
 						{
-							Type: wgh.DeviceAIfname,
+							Type: unix.WGDEVICE_A_IFNAME,
 							Data: nlenc.Bytes(okName),
 						},
 						{
-							Type: wgh.DeviceAPrivateKey,
+							Type: unix.WGDEVICE_A_PRIVATE_KEY,
 							Data: testKey[:],
 						},
 						{
-							Type: wgh.DeviceAPeers,
+							Type: unix.WGDEVICE_A_PEERS,
 							Data: m(netlink.Attribute{
 								Type: 0,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: keyA[:],
 									},
 									{
-										Type: wgh.PeerAAllowedips,
+										Type: unix.WGPEER_A_ALLOWEDIPS,
 										Data: mustAllowedIPs([]net.IPNet{
 											wgtest.MustCIDR("192.168.1.10/32"),
 											wgtest.MustCIDR("192.168.1.11/32"),
@@ -342,17 +341,17 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				// Continuation of first peer list, new peer list.
 				{
 					Data: m(netlink.Attribute{
-						Type: wgh.DeviceAPeers,
+						Type: unix.WGDEVICE_A_PEERS,
 						Data: m([]netlink.Attribute{
 							{
 								Type: 0,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: keyA[:],
 									},
 									{
-										Type: wgh.PeerAAllowedips,
+										Type: unix.WGPEER_A_ALLOWEDIPS,
 										Data: mustAllowedIPs([]net.IPNet{
 											wgtest.MustCIDR("fd00:dead:beef:dead::/64"),
 											wgtest.MustCIDR("fd00:dead:beef:ffff::/64"),
@@ -364,11 +363,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 								Type: 1,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: keyB[:],
 									},
 									{
-										Type: wgh.PeerAAllowedips,
+										Type: unix.WGPEER_A_ALLOWEDIPS,
 										Data: mustAllowedIPs([]net.IPNet{
 											wgtest.MustCIDR("10.10.10.0/24"),
 											wgtest.MustCIDR("10.10.11.0/24"),
@@ -382,17 +381,17 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				// Continuation of prevoius peer list, new peer list.
 				{
 					Data: m(netlink.Attribute{
-						Type: wgh.DeviceAPeers,
+						Type: unix.WGDEVICE_A_PEERS,
 						Data: m([]netlink.Attribute{
 							{
 								Type: 0,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: keyB[:],
 									},
 									{
-										Type: wgh.PeerAAllowedips,
+										Type: unix.WGPEER_A_ALLOWEDIPS,
 										Data: mustAllowedIPs([]net.IPNet{
 											wgtest.MustCIDR("10.10.12.0/24"),
 											wgtest.MustCIDR("10.10.13.0/24"),
@@ -404,11 +403,11 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 								Type: 1,
 								Data: m([]netlink.Attribute{
 									{
-										Type: wgh.PeerAPublicKey,
+										Type: unix.WGPEER_A_PUBLIC_KEY,
 										Data: keyC[:],
 									},
 									{
-										Type: wgh.PeerAAllowedips,
+										Type: unix.WGPEER_A_ALLOWEDIPS,
 										Data: mustAllowedIPs([]net.IPNet{
 											wgtest.MustCIDR("fd00:1234::/32"),
 											wgtest.MustCIDR("fd00:4567::/32"),
@@ -460,7 +459,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			const (
-				cmd   = wgh.CmdGetDevice
+				cmd   = unix.WG_CMD_GET_DEVICE
 				flags = netlink.Request | netlink.Dump
 			)
 
