@@ -30,9 +30,17 @@ type Client struct {
 // New creates a new Client and returns whether or not the generic netlink
 // interface is available.
 func New() (*Client, bool, error) {
-	c, err := genetlink.Dial(&netlink.Config{Strict: true})
+	c, err := genetlink.Dial(nil)
 	if err != nil {
 		return nil, false, err
+	}
+
+	// Best effort version of netlink.Config.Strict due to CentOS 7.
+	for _, o := range []netlink.ConnOption{
+		netlink.ExtendedAcknowledge,
+		netlink.GetStrictCheck,
+	} {
+		_ = c.SetOption(o, true)
 	}
 
 	return initClient(c)
