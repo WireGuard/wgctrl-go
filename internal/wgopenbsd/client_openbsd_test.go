@@ -4,6 +4,7 @@
 package wgopenbsd
 
 import (
+	"errors"
 	"net"
 	"os"
 	"testing"
