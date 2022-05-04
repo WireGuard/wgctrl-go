@@ -5,18 +5,17 @@ sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
+  GOBIN: "/home/build/go/bin"
 tasks:
   - setup-wireguard: |
       ./wgctrl-go/.cibuild.sh
   - build: |
       go version
-      go get golang.org/x/lint/golint
-      go get honnef.co/go/tools/cmd/staticcheck
+      go install honnef.co/go/tools/cmd/staticcheck@latest
       cd wgctrl-go/
       diff -u <(echo -n) <(/usr/local/go/bin/gofmt -d -s .)
       go vet ./...
-      /home/build/go/bin/staticcheck ./...
-      /home/build/go/bin/golint -set_exit_status ./...
+      $GOBIN/staticcheck ./...
       go test -v -race ./...
       go test -c -race .
       # Use wireguard-go for additional testing.
