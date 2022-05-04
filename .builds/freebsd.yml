@@ -19,5 +19,5 @@ tasks:
       go test -v -race ./...
       go test -c -race .
       # Use wireguard-go for additional testing.
-      sudo /home/build/go/bin/wireguard-go wguser0
+      sudo /usr/local/bin/wireguard-go wguser0
       sudo WGCTRL_INTEGRATION=yesreallydoit ./wgctrl.test -test.v -test.run TestIntegration

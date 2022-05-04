@@ -25,5 +25,5 @@ tasks:
       # TODO: re-enable once Go 1.18 is available in openbsd/latest and wireguard-go can be built
       exit 0
       # Use wireguard-go for additional testing.
-      doas /home/build/go/bin/wireguard-go tun0
+      doas /usr/local/bin/wireguard-go tun0
       doas bash -c 'WGCTRL_INTEGRATION=yesreallydoit ./wgctrl.test -test.v -test.run TestIntegration'
