@@ -10,6 +10,9 @@ KERNEL=$(uname -s)
 SUDO="sudo"
 if [ "${KERNEL}" == "OpenBSD" ]; then
     SUDO="doas"
+    # TODO: wireguard-go only builds using Go 1.18. However, openbsd/latest
+    # currently has an older version. Re-enable once Go 1.18 is available.
+    exit 0
 fi
 
 if [ "${KERNEL}" == "Linux" ]; then
