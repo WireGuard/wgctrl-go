@@ -344,7 +344,7 @@ func bePort(port uint16) int {
 // fd to retrieve members of an interface group.
 func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq) error {
 	return func(ifg *wgh.Ifgroupreq) error {
-		return ioctl(fd, wgh.SIOCGIFGMEMB, unsafe.Pointer(ifg))
+		return ioctl(fd, unix.SIOCGIFGMEMB, unsafe.Pointer(ifg))
 	}
 }
 
