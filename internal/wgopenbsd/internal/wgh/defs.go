@@ -29,8 +29,6 @@ import "C"
 // Interface group types and constants.
 
 const (
-	SIOCGIFGMEMB = C.SIOCGIFGMEMB
-
 	SizeofIfgreq = C.sizeof_struct_ifg_req
 )
 
