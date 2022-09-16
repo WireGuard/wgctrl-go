@@ -63,7 +63,7 @@ func (c *Client) refreshInterfaceCache() error {
 		}
 		var status, problemCode uint32
 		ret := windows.CM_Get_DevNode_Status(&status, &problemCode, devInfoData.DevInst, 0)
-		if ret != nil || (status&windows.DN_DRIVER_LOADED|windows.DN_STARTED) != windows.DN_DRIVER_LOADED|windows.DN_STARTED {
+		if ret != nil || status&(windows.DN_DRIVER_LOADED|windows.DN_STARTED) != windows.DN_DRIVER_LOADED|windows.DN_STARTED {
 			continue
 		}
 		instanceId, err := windows.SetupDiGetDeviceInstanceId(devInfo, devInfoData)
