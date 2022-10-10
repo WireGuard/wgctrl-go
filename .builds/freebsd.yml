@@ -1,11 +1,15 @@
 image: freebsd/latest
 packages:
   - go
+  - bash
+  - sudo
+  - wireguard
 sources:
   - https://github.com/WireGuard/wgctrl-go
 environment:
   GO111MODULE: "on"
   GOBIN: "/home/build/go/bin"
+  CGO_ENABLED: "1"
 tasks:
   - setup-wireguard: |
       ./wgctrl-go/.cibuild.sh

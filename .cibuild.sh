@@ -15,6 +15,12 @@ if [ "${KERNEL}" == "OpenBSD" ]; then
     exit 0
 fi
 
+if [ "${KERNEL}" == "FreeBSD" ]; then
+    # Configure a WireGuard interface.
+    sudo ifconfig wg create name wg0
+    sudo ifconfig wg0 up
+fi
+
 if [ "${KERNEL}" == "Linux" ]; then
     # Configure a WireGuard interface.
     sudo ip link add wg0 type wireguard
