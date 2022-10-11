@@ -365,6 +365,12 @@ func testConfigurePeersUpdateOnly(t *testing.T, c *wgctrl.Client, d *wgtypes.Dev
 	}
 
 	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+		if d.Type == wgtypes.FreeBSDKernel && err == wgtypes.ErrUpdateOnlyNotSupported {
+			// TODO(stv0g): remove as soon as the FreeBSD kernel module supports it
+			t.Skip("FreeBSD kernel devices do not support UpdateOnly flag")
+		}
+
+
 		t.Fatalf("failed to configure second time on %q: %v", d.Name, err)
 	}
 

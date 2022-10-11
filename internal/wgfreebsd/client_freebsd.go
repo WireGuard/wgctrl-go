@@ -166,6 +166,20 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 
 // ConfigureDevice implements wginternal.Client.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
+	// Check if there is a peer with the UpdateOnly flag set.
+	// This is not supported on FreeBSD yet. So error out..
+	// TODO(stv0g): remove this check once kernel support has landed.
+	for _, peer := range cfg.Peers {
+		if peer.UpdateOnly {
+			// Check that this device is really an existing kernel
+			// device
+			if _, err := c.Device(name); err != os.ErrNotExist {
+				return wgtypes.ErrUpdateOnlyNotSupported
+			}
+		}
+	}
+
+
 	m := unparseConfig(cfg)
 	mem, sz, err := nv.Marshal(m)
 	if err != nil {
