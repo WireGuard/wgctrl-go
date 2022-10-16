@@ -1,10 +1,12 @@
 package wgctrl_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -185,6 +187,15 @@ func testConfigure(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 			AllowedIPs:        ips,
 			ProtocolVersion:   1,
 		}},
+	}
+
+	// Sort AllowedIPs as different implementations might return
+	// them in different order
+	for i := range dn.Peers {
+		ips := dn.Peers[i].AllowedIPs
+		sort.Slice(ips, func(i, j int) bool {
+			return bytes.Compare(ips[i].IP, ips[j].IP) > 0
+		})
 	}
 
 	if diff := cmp.Diff(d, dn); diff != "" {
