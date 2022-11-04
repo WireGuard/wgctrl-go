@@ -1,10 +1,12 @@
 package wgctrl_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -68,7 +70,7 @@ func TestIntegrationClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Panic if a specific test takes too long.
-			timer := time.AfterFunc(1*time.Minute, func() {
+			timer := time.AfterFunc(5*time.Minute, func() {
 				panic("test took too long")
 			})
 			defer timer.Stop()
@@ -185,6 +187,15 @@ func testConfigure(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 			AllowedIPs:        ips,
 			ProtocolVersion:   1,
 		}},
+	}
+
+	// Sort AllowedIPs as different implementations might return
+	// them in different order
+	for i := range dn.Peers {
+		ips := dn.Peers[i].AllowedIPs
+		sort.Slice(ips, func(i, j int) bool {
+			return bytes.Compare(ips[i].IP, ips[j].IP) > 0
+		})
 	}
 
 	if diff := cmp.Diff(d, dn); diff != "" {
@@ -354,6 +365,12 @@ func testConfigurePeersUpdateOnly(t *testing.T, c *wgctrl.Client, d *wgtypes.Dev
 	}
 
 	if err := c.ConfigureDevice(d.Name, cfg); err != nil {
+		if d.Type == wgtypes.FreeBSDKernel && err == wgtypes.ErrUpdateOnlyNotSupported {
+			// TODO(stv0g): remove as soon as the FreeBSD kernel module supports it
+			t.Skip("FreeBSD kernel devices do not support UpdateOnly flag")
+		}
+
+
 		t.Fatalf("failed to configure second time on %q: %v", d.Name, err)
 	}
 

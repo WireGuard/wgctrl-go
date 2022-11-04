@@ -4,7 +4,6 @@
 package wguser
 
 import (
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,14 +13,14 @@ import (
 )
 
 func TestUNIX_findUNIXSockets(t *testing.T) {
-	tmp, err := ioutil.TempDir(os.TempDir(), "wireguardcfg-test")
+	tmp, err := os.MkdirTemp(os.TempDir(), "wireguardcfg-test")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
 	// Create a file which is not a device socket.
-	f, err := ioutil.TempFile(tmp, "notwg")
+	f, err := os.CreateTemp(tmp, "notwg")
 	if err != nil {
 		t.Fatalf("failed to create temporary file: %v", err)
 	}
@@ -63,7 +62,7 @@ func testFind(dir string) func() ([]string, error) {
 func testListen(t *testing.T, device string) (l net.Listener, dir string, done func()) {
 	t.Helper()
 
-	tmp, err := ioutil.TempDir(os.TempDir(), "wguser-test")
+	tmp, err := os.MkdirTemp(os.TempDir(), "wguser-test")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %v", err)
 	}

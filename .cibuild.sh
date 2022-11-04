@@ -10,9 +10,20 @@ KERNEL=$(uname -s)
 SUDO="sudo"
 if [ "${KERNEL}" == "OpenBSD" ]; then
     SUDO="doas"
-    # TODO: wireguard-go only builds using Go 1.18. However, openbsd/latest
-    # currently has an older version. Re-enable once Go 1.18 is available.
+
+    # Configure a WireGuard interface.
+    doas ifconfig wg0 create
+    doas ifconfig wg0 up
+
+    # TODO: wireguard-go only builds using Go 1.19+. However, openbsd/latest
+    # currently has an older version.
     exit 0
+fi
+
+if [ "${KERNEL}" == "FreeBSD" ]; then
+    # Configure a WireGuard interface.
+    sudo ifconfig wg create name wg0
+    sudo ifconfig wg0 up
 fi
 
 if [ "${KERNEL}" == "Linux" ]; then
