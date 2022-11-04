@@ -7,10 +7,6 @@ For more information on WireGuard, please see <https://www.wireguard.com/>.
 
 MIT Licensed.
 
-```text
-go get golang.zx2c4.com/wireguard/wgctrl
-```
-
 ## Overview
 
 `wgctrl` can control multiple types of WireGuard devices, including:
@@ -18,12 +14,9 @@ go get golang.zx2c4.com/wireguard/wgctrl
 - Kernel module devices
   - Linux: via generic netlink
   - FreeBSD: via ioctl interface
+  - OpenBSD: via ioctl interface (read-only)
   - Windows: via ioctl interface
-  - OpenBSD: via ioctl interface (**Experimental**, read-only)
 - Userspace devices via the userspace configuration protocol
-  - [wireguard-go](https://git.zx2c4.com/wireguard-go)
-  - [wireguard-rs](https://git.zx2c4.com/wireguard-rs))
-  - [boringtun](https://github.com/cloudflare/boringtun)
 
 As new operating systems add support for in-kernel WireGuard implementations,
 this package should also be extended to support those native implementations.
