@@ -179,7 +179,6 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		}
 	}
 
-
 	m := unparseConfig(cfg)
 	mem, sz, err := nv.Marshal(m)
 	if err != nil {
@@ -406,7 +405,7 @@ func parsePeer(v nv.List) wgtypes.Peer {
 	}
 
 	if v, ok := v["tx-bytes"]; ok {
-		p.ReceiveBytes = int64(v.(uint64))
+		p.TransmitBytes = int64(v.(uint64))
 	}
 
 	if v, ok := v["allowed-ips"]; ok {
