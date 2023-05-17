@@ -37,7 +37,7 @@ func TestKeyExchange(t *testing.T) {
 	privA, pubA := mustKeyPair()
 	privB, pubB := mustKeyPair()
 
-	// Perform ECDH key exhange: https://cr.yp.to/ecdh.html.
+	// Perform ECDH key exchange: https://cr.yp.to/ecdh.html.
 	sharedA, err := curve25519.X25519(privA[:], pubB[:])
 	if err != nil {
 		t.Fatalf("failed to perform X25519 A: %v", err)
