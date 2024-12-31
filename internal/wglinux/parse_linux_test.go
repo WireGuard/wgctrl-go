@@ -378,7 +378,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 						}...),
 					}),
 				},
-				// Continuation of prevoius peer list, new peer list.
+				// Continuation of previous peer list, new peer list.
 				{
 					Data: m(netlink.Attribute{
 						Type: unix.WGDEVICE_A_PEERS,
