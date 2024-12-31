@@ -22,7 +22,5 @@ tasks:
       GOARCH=386 go build ./...
       go test -c .
       doas bash -c 'WGCTRL_INTEGRATION=yesreallydoit ./wgctrl.test -test.v -test.run TestIntegration'
-      # TODO: re-enable once Go 1.19 is available in openbsd/latest and wireguard-go can be built
-      exit 0
       # Use wireguard-go for additional testing.
       doas /usr/local/bin/wireguard-go tun0
