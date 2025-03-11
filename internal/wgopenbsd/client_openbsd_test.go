@@ -58,7 +58,8 @@ func TestClientDevices(t *testing.T) {
 	// to allocate for the memory slice.
 
 	var wgIOCalls int
-	wgDataIOFunc := func(data *wgh.WGDataIO) error {
+	// TODO/FIXME: SIOCSWG
+	wgDataIOFunc := func(req uint, data *wgh.WGDataIO) error {
 		// Expect two calls per device, where the first call indicates the
 		// number of bytes to populate, and the second would normally populate
 		// the caller's memory.
@@ -123,7 +124,8 @@ func TestClientDeviceBasic(t *testing.T) {
 		ioctlIfgroupreq: func(_ *wgh.Ifgroupreq) error {
 			panic("no calls to Client.Devices, should not be called")
 		},
-		ioctlWGDataIO: func(data *wgh.WGDataIO) error {
+		// TODO/FIXME: get this working with SIOCSWG
+		ioctlWGDataIO: func(req uint, data *wgh.WGDataIO) error {
 			// Verify the caller is asking for WireGuard interface group members.
 			if diff := cmp.Diff(devName(device), data.Name); diff != "" {
 				t.Fatalf("unexpected interface name (-want +got):\n%s", diff)
@@ -280,7 +282,8 @@ func TestClientDeviceNotExist(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Client{
-				ioctlWGDataIO: func(_ *wgh.WGDataIO) error {
+				// TODO/FIXME: SIOCSWG
+				ioctlWGDataIO: func(_ uint, _ *wgh.WGDataIO) error {
 					return tt.err
 				},
 			}
@@ -294,7 +297,8 @@ func TestClientDeviceNotExist(t *testing.T) {
 
 func TestClientDeviceWrongMemorySize(t *testing.T) {
 	c := &Client{
-		ioctlWGDataIO: func(data *wgh.WGDataIO) error {
+		// TODO/FIXME: SIOCSWG
+		ioctlWGDataIO: func(req uint, data *wgh.WGDataIO) error {
 			// Pass a nonsensical number of bytes back to the caller.
 			data.Size = 1
 			return nil

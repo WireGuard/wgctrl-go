@@ -61,13 +61,17 @@ type WGPeerIO struct {
 	Txbytes          uint64
 	Rxbytes          uint64
 	Last_handshake   Timespec
+	Description      [64]byte
 	Aips_count       uint32
 	Aips             [0]WGAIPIO
 	Pad_cgo_1        [4]byte
 }
 
+type SizeT = uint32
+
 const (
 	SIOCGWG = 0xc01869d3
+	SIOCSWG = 0xc01869d2
 
 	WG_INTERFACE_HAS_PUBLIC    = 0x1
 	WG_INTERFACE_HAS_PRIVATE   = 0x2
@@ -75,12 +79,17 @@ const (
 	WG_INTERFACE_HAS_RTABLE    = 0x8
 	WG_INTERFACE_REPLACE_PEERS = 0x10
 
-	WG_PEER_HAS_PUBLIC   = 0x1
-	WG_PEER_HAS_PSK      = 0x2
-	WG_PEER_HAS_PKA      = 0x4
-	WG_PEER_HAS_ENDPOINT = 0x8
+	WG_PEER_HAS_PUBLIC      = 0x1
+	WG_PEER_HAS_PSK         = 0x2
+	WG_PEER_HAS_PKA         = 0x4
+	WG_PEER_HAS_ENDPOINT    = 0x8
+	WG_PEER_REPLACE_AIPS    = 0x10
+	WG_PEER_REMOVE          = 0x20
+	WG_PEER_UPDATE          = 0x40
+	WG_PEER_SET_DESCRIPTION = 0x80
 
 	SizeofWGAIPIO       = 0x18
 	SizeofWGInterfaceIO = 0x50
-	SizeofWGPeerIO      = 0x90
+	SizeofWGPeerIO      = 0xd0
+	SizeofWGDataIO      = 0x18
 )

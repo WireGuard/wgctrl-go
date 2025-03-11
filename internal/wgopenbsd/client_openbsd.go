@@ -30,7 +30,7 @@ type Client struct {
 	// during tests.
 	close           func() error
 	ioctlIfgroupreq func(ifg *wgh.Ifgroupreq) error
-	ioctlWGDataIO   func(data *wgh.WGDataIO) error
+	ioctlWGDataIO   func(req uint, data *wgh.WGDataIO) error
 }
 
 // New creates a new Client and returns whether or not the ioctl interface
@@ -122,7 +122,7 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	// if it proves to be a concern.
 	var mem []byte
 	for {
-		if err := c.ioctlWGDataIO(&data); err != nil {
+		if err := c.ioctlWGDataIO(wgh.SIOCGWG, &data); err != nil {
 			// ioctl functions always return a wrapped unix.Errno value.
 			// Conform to the wgctrl contract by unwrapping some values:
 			//   ENXIO: "no such device": (no such WireGuard device)
@@ -223,14 +223,142 @@ func parseDevice(name string, ifio *wgh.WGInterfaceIO) (*wgtypes.Device, error) 
 
 // ConfigureDevice implements wginternal.Client.
 func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
-	// Currently read-only: we must determine if a device belongs to this driver,
-	// and if it does, return a sentinel so integration tests that configure a
-	// device can be skipped.
-	if _, err := c.Device(name); err != nil {
+	dname, err := deviceName(name)
+	if err != nil {
 		return err
 	}
 
-	return wginternal.ErrReadOnly
+	var port uint16
+	var public wgtypes.Key
+	var private wgtypes.Key
+	var rtable int32
+
+	var flags uint8
+	if cfg.ReplacePeers {
+		flags |= wgh.WG_INTERFACE_REPLACE_PEERS
+	}
+	if cfg.FirewallMark != nil {
+		flags |= wgh.WG_INTERFACE_HAS_RTABLE
+		rtable = int32(*cfg.FirewallMark)
+	}
+	if cfg.ListenPort != nil {
+		flags |= wgh.WG_INTERFACE_HAS_PORT
+		port = uint16(*cfg.ListenPort)
+	}
+	if cfg.PrivateKey != nil {
+		flags |= wgh.WG_INTERFACE_HAS_PRIVATE
+		private = *cfg.PrivateKey
+	}
+
+	iface := wgh.WGInterfaceIO{
+		Peers_count: wgh.SizeT(len(cfg.Peers)),
+		Port:        port,
+		Rtable:      rtable,
+		Public:      public,
+		Private:     private,
+		Flags:       flags,
+	}
+
+	aipCount := 0
+	for _, peer := range cfg.Peers {
+		aipCount += len(peer.AllowedIPs)
+	}
+
+	ioctlBuf := make([]byte, wgh.SizeofWGInterfaceIO+len(cfg.Peers)*wgh.SizeofWGPeerIO+aipCount*wgh.SizeofWGAIPIO)
+	copy(ioctlBuf, (*(*[wgh.SizeofWGInterfaceIO]byte)(unsafe.Pointer(&iface)))[:])
+
+	bufIdx := wgh.SizeofWGInterfaceIO
+
+	for _, peer := range cfg.Peers {
+		var rawPeer wgh.WGPeerIO
+
+		rawPeer.Aips_count = wgh.SizeT(len(peer.AllowedIPs))
+
+		if peer.Endpoint != nil {
+			if peer.Endpoint.IP.To4() != nil {
+				rawAddr := unix.RawSockaddrInet4{
+					Port:   uint16(bePort(uint16(peer.Endpoint.Port))),
+					Family: unix.AF_INET,
+					Len:    uint8(unsafe.Sizeof(unix.RawSockaddrInet4{})),
+				}
+				copy(rawAddr.Addr[:], peer.Endpoint.IP)
+				copy(rawPeer.Endpoint[:], (*(*[unsafe.Sizeof(rawAddr)]byte)(unsafe.Pointer(&rawAddr)))[:])
+			} else {
+				rawAddr := unix.RawSockaddrInet6{
+					Port:   uint16(bePort(uint16(peer.Endpoint.Port))),
+					Family: unix.AF_INET6,
+					Len:    uint8(unsafe.Sizeof(unix.RawSockaddrInet6{})),
+				}
+				copy(rawAddr.Addr[:], peer.Endpoint.IP)
+				copy(rawPeer.Endpoint[:], (*(*[unsafe.Sizeof(rawAddr)]byte)(unsafe.Pointer(&rawAddr)))[:])
+			}
+			rawPeer.Flags |= wgh.WG_PEER_HAS_ENDPOINT
+		}
+		if peer.PersistentKeepaliveInterval != nil {
+			rawPeer.Pka = uint16(*peer.PersistentKeepaliveInterval)
+			rawPeer.Flags |= wgh.WG_PEER_HAS_PKA
+		}
+		if peer.PresharedKey != nil {
+			rawPeer.Psk = *peer.PresharedKey
+			rawPeer.Flags |= wgh.WG_PEER_HAS_PSK
+		}
+		rawPeer.Public = peer.PublicKey
+		rawPeer.Flags |= wgh.WG_PEER_HAS_PUBLIC
+
+		if peer.Remove {
+			rawPeer.Flags |= wgh.WG_PEER_REMOVE
+		}
+		if peer.ReplaceAllowedIPs {
+			rawPeer.Flags |= wgh.WG_PEER_REPLACE_AIPS
+		}
+		if peer.UpdateOnly {
+			// FIXME: not positive this flag is *only* update
+			rawPeer.Flags |= wgh.WG_PEER_UPDATE
+		}
+
+		rawPeer.Protocol_version = 1
+
+		copy(ioctlBuf[bufIdx:], (*(*[wgh.SizeofWGPeerIO]byte)(unsafe.Pointer(&rawPeer)))[:])
+		bufIdx += wgh.SizeofWGPeerIO
+
+		for _, aip := range peer.AllowedIPs {
+			var rawAip wgh.WGAIPIO
+			if v4 := aip.IP.To4(); v4 != nil {
+				rawAip.Af = unix.AF_INET
+				copy(rawAip.Addr[:net.IPv4len], v4)
+			} else {
+				rawAip.Af = unix.AF_INET6
+				rawAip.Addr = [net.IPv6len]byte(aip.IP)
+			}
+			ones, _ := aip.Mask.Size()
+			rawAip.Cidr = int32(ones)
+
+			copy(ioctlBuf[bufIdx:], (*(*[wgh.SizeofWGAIPIO]byte)(unsafe.Pointer(&rawAip)))[:])
+			bufIdx += wgh.SizeofWGAIPIO
+		}
+
+	}
+
+	data := wgh.WGDataIO{
+		Name:      dname,
+		Size:      wgh.SizeT(len(ioctlBuf)),
+		Interface: (*wgh.WGInterfaceIO)(unsafe.Pointer(&ioctlBuf[0])),
+	}
+	if err := c.ioctlWGDataIO(wgh.SIOCSWG, &data); err != nil {
+		// ioctl functions always return a wrapped unix.Errno value.
+		// Conform to the wgctrl contract by unwrapping some values:
+		//   ENXIO: "no such device": (no such WireGuard device)
+		//   EINVAL: "inappropriate ioctl for device" (device is not a
+		//	   WireGuard device)
+		switch err.(*os.SyscallError).Err {
+		case unix.ENXIO, unix.EINVAL:
+			return os.ErrNotExist
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 // deviceName converts an interface name string to the format required to pass
@@ -350,9 +478,9 @@ func ioctlIfgroupreq(fd int) func(*wgh.Ifgroupreq) error {
 
 // ioctlWGDataIO returns a function which performs the appropriate ioctl on
 // fd to issue a WireGuard data I/O.
-func ioctlWGDataIO(fd int) func(*wgh.WGDataIO) error {
-	return func(data *wgh.WGDataIO) error {
-		return ioctl(fd, wgh.SIOCGWG, unsafe.Pointer(data))
+func ioctlWGDataIO(fd int) func(uint, *wgh.WGDataIO) error {
+	return func(req uint, data *wgh.WGDataIO) error {
+		return ioctl(fd, req, unsafe.Pointer(data))
 	}
 }
 
