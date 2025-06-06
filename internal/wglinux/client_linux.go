@@ -6,6 +6,7 @@ package wglinux
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"syscall"
 
@@ -142,6 +143,39 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	}
 
 	return nil
+}
+
+func (c *Client) SupportsAllowedIPRemove(name string) (bool, error) {
+	err := c.ConfigureDevice(name, wgtypes.Config{
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey: wgtypes.Key{},
+			},
+			{
+				PublicKey: wgtypes.Key{},
+				AllowedIPs: []wgtypes.AllowedIPConfig{
+					{
+						IPNet: net.IPNet{
+							IP:   net.IPv6zero,
+							Mask: net.CIDRMask(0, 8*net.IPv6len),
+						},
+						Remove: true,
+					},
+				},
+			},
+			{
+				PublicKey: wgtypes.Key{},
+				Remove:    true,
+			},
+		},
+	})
+
+	var errno syscall.Errno
+	if errors.As(err, &errno) && errno == unix.EINVAL {
+		return false, nil
+	}
+
+	return err == nil, err
 }
 
 // execute executes a single WireGuard netlink request with the specified command,

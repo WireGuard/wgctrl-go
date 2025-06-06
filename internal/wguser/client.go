@@ -1,6 +1,7 @@
 package wguser
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -87,6 +88,35 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	}
 
 	return os.ErrNotExist
+}
+
+func (c *Client) SupportsAllowedIPRemove(name string) (bool, error) {
+	err := c.ConfigureDevice(name, wgtypes.Config{
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey: wgtypes.Key{},
+				AllowedIPs: []wgtypes.AllowedIPConfig{
+					{
+						IPNet: net.IPNet{
+							IP:   net.IPv6zero,
+							Mask: net.CIDRMask(0, 8*net.IPv6len),
+						},
+						Remove: true,
+					},
+				},
+				// Don't create the peer if sucessful; we just
+				// want to submit the request for validation.
+				UpdateOnly: true,
+			},
+		},
+	})
+
+	var sysErr *os.SyscallError
+	if errors.As(err, &sysErr) && strings.Contains(sysErr.Error(), "-22") {
+		return false, nil
+	}
+
+	return err == nil, err
 }
 
 // deviceName infers a device name from an absolute file path with extension.

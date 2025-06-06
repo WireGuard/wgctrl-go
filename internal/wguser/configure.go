@@ -95,9 +95,18 @@ func writeConfig(w io.Writer, cfg wgtypes.Config) {
 		}
 
 		for _, ip := range p.AllowedIPs {
-			fmt.Fprintf(w, "allowed_ip=%s\n", ip.String())
+			fmt.Fprintf(w, "allowed_ip=%s\n", aipStr(ip))
 		}
 	}
+}
+
+func aipStr(aip wgtypes.AllowedIPConfig) string {
+	s := aip.String()
+	if aip.Remove {
+		s = "-" + s
+	}
+
+	return s
 }
 
 // hexKey encodes a wgtypes.Key into a hexadecimal string.

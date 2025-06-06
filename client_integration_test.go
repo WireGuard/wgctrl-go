@@ -20,7 +20,7 @@ import (
 )
 
 func TestIntegrationClient(t *testing.T) {
-	c, done := integrationClient(t)
+	c, done := integrationClient(t, false)
 	defer done()
 
 	devices, err := c.Devices()
@@ -42,6 +42,14 @@ func TestIntegrationClient(t *testing.T) {
 		{
 			name: "configure",
 			fn:   testConfigure,
+		},
+		{
+			name: "remove many IPs",
+			fn: func(t *testing.T, _ *wgctrl.Client, d *wgtypes.Device) {
+				c, done := integrationClient(t, true)
+				defer done()
+				testRemoveManyIPs(t, c, d)
+			},
 		},
 		{
 			name: "configure many IPs",
@@ -91,7 +99,7 @@ func TestIntegrationClient(t *testing.T) {
 }
 
 func TestIntegrationClientIsNotExist(t *testing.T) {
-	c, done := integrationClient(t)
+	c, done := integrationClient(t, false)
 	defer done()
 
 	if _, err := c.Device("wgnotexist0"); !errors.Is(err, os.ErrNotExist) {
@@ -99,7 +107,7 @@ func TestIntegrationClientIsNotExist(t *testing.T) {
 	}
 }
 
-func integrationClient(t *testing.T) (*wgctrl.Client, func()) {
+func integrationClient(t *testing.T, useShim bool) (*wgctrl.Client, func()) {
 	t.Helper()
 
 	const (
@@ -112,7 +120,12 @@ func integrationClient(t *testing.T) (*wgctrl.Client, func()) {
 			env, confirm)
 	}
 
-	c, err := wgctrl.New()
+	var opts []wgctrl.Option
+	if useShim {
+		opts = append(opts, wgctrl.WithShim)
+	}
+
+	c, err := wgctrl.New(opts...)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			t.Skip("skipping, wgctrl is not available on this system")
@@ -141,6 +154,18 @@ func testGet(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 	}
 }
 
+func ipsToAllowedIPConfig(ips []net.IPNet) []wgtypes.AllowedIPConfig {
+	result := make([]wgtypes.AllowedIPConfig, len(ips))
+
+	for i := range ips {
+		result[i] = wgtypes.AllowedIPConfig{
+			IPNet: ips[i],
+		}
+	}
+
+	return result
+}
+
 func testConfigure(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 	var (
 		port = 8888
@@ -162,7 +187,7 @@ func testConfigure(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 		Peers: []wgtypes.PeerConfig{{
 			PublicKey:         peerKey,
 			ReplaceAllowedIPs: true,
-			AllowedIPs:        ips,
+			AllowedIPs:        ipsToAllowedIPConfig(ips),
 		}},
 	}
 
@@ -211,6 +236,94 @@ func testConfigure(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 	t.Log(out)
 }
 
+func testRemoveManyIPs(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
+	// Apply 511 IPs per peer.
+	var (
+		countIPs       int
+		peers          []wgtypes.PeerConfig
+		peersRemoveIPs []wgtypes.PeerConfig
+	)
+
+	for i := 0; i < 2; i++ {
+		cidr := "2001:db8::/119"
+		if i == 1 {
+			cidr = "2001:db8:ffff::/119"
+		}
+
+		cur, err := ipaddr.Parse(cidr)
+		if err != nil {
+			t.Fatalf("failed to create cursor: %v", err)
+		}
+
+		var ips []net.IPNet
+		for pos := cur.Next(); pos != nil; pos = cur.Next() {
+			bits := 128
+			if pos.IP.To4() != nil {
+				bits = 32
+			}
+
+			ips = append(ips, net.IPNet{
+				IP:   pos.IP,
+				Mask: net.CIDRMask(bits, bits),
+			})
+		}
+
+		peers = append(peers, wgtypes.PeerConfig{
+			PublicKey:         wgtest.MustPublicKey(),
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        ipsToAllowedIPConfig(ips),
+		})
+
+		peersRemoveIPs = append(peersRemoveIPs, wgtypes.PeerConfig{
+			PublicKey:  peers[len(peers)-1].PublicKey,
+			AllowedIPs: ipsToAllowedIPConfig(ips),
+		})
+
+		// Remove every other IP
+		for i := range peersRemoveIPs[len(peersRemoveIPs)-1].AllowedIPs {
+			peersRemoveIPs[len(peersRemoveIPs)-1].AllowedIPs[i].Remove = i%2 == 0
+		}
+
+		countIPs += len(ips)
+	}
+
+	cfg := wgtypes.Config{
+		ReplacePeers: true,
+		Peers:        peers,
+	}
+	removeCfg := wgtypes.Config{
+		Peers: peersRemoveIPs,
+	}
+
+	tryConfigure(t, c, d.Name, cfg)
+
+	dn, err := c.Device(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get %q by name: %v", d.Name, err)
+	}
+
+	peerIPs := countPeerIPs(dn)
+	if diff := cmp.Diff(countIPs, peerIPs); diff != "" {
+		t.Fatalf("unexpected number of configured peer IPs (-want +got):\n%s", diff)
+	}
+
+	t.Logf("device: %s: %d IPs", d.Name, peerIPs)
+
+	tryConfigure(t, c, d.Name, removeCfg)
+
+	dn, err = c.Device(d.Name)
+	if err != nil {
+		t.Fatalf("failed to get %q by name: %v", d.Name, err)
+	}
+
+	peerIPs = countPeerIPs(dn)
+	if diff := cmp.Diff(countIPs/2-1, peerIPs); diff != "" {
+		t.Fatalf("unexpected number of configured peer IPs (-want +got):\n%s", diff)
+	}
+
+	t.Logf("device: %s: %d IPs after remove", d.Name, peerIPs)
+}
+
 func testConfigureManyIPs(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 	// Apply 511 IPs per peer.
 	var (
@@ -245,7 +358,7 @@ func testConfigureManyIPs(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 		peers = append(peers, wgtypes.PeerConfig{
 			PublicKey:         wgtest.MustPublicKey(),
 			ReplaceAllowedIPs: true,
-			AllowedIPs:        ips,
+			AllowedIPs:        ipsToAllowedIPConfig(ips),
 		})
 
 		countIPs += len(ips)
@@ -295,7 +408,7 @@ func testConfigureManyPeers(t *testing.T, c *wgctrl.Client, d *wgtypes.Device) {
 				Port: 1111,
 			},
 			PersistentKeepaliveInterval: &dur,
-			AllowedIPs:                  ips,
+			AllowedIPs:                  ipsToAllowedIPConfig(ips),
 		})
 	}
 
@@ -369,7 +482,6 @@ func testConfigurePeersUpdateOnly(t *testing.T, c *wgctrl.Client, d *wgtypes.Dev
 			// TODO(stv0g): remove as soon as the FreeBSD kernel module supports it
 			t.Skip("FreeBSD kernel devices do not support UpdateOnly flag")
 		}
-
 
 		t.Fatalf("failed to configure second time on %q: %v", d.Name, err)
 	}

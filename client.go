@@ -5,11 +5,22 @@ import (
 	"os"
 
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
+	"golang.zx2c4.com/wireguard/wgctrl/internal/wgshim"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// Expose an identical interface to the underlying packages.
-var _ wginternal.Client = &Client{}
+// An Option configures a client in some way. Options may be provided when
+// calling New().
+type Option func(wginternal.Client) wginternal.Client
+
+// WithShim wraps the client in a shim that probes for the capabilities
+// supported by the underlying WireGuard implementation and emulates missing
+// capabilities.
+//
+// This option ensures backwards and forwards compatibility.
+func WithShim(c wginternal.Client) wginternal.Client {
+	return wgshim.New(c)
+}
 
 // A Client provides access to WireGuard device information.
 type Client struct {
@@ -18,11 +29,18 @@ type Client struct {
 	cs []wginternal.Client
 }
 
-// New creates a new Client.
-func New() (*Client, error) {
+// New creates a new Client. Callers may provide a list of Options that modify
+// client behavior.
+func New(opts ...Option) (*Client, error) {
 	cs, err := newClients()
 	if err != nil {
 		return nil, err
+	}
+
+	for _, opt := range opts {
+		for i := range cs {
+			cs[i] = opt(cs[i])
+		}
 	}
 
 	return &Client{

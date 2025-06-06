@@ -1,6 +1,7 @@
 package wgwindows
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -284,6 +285,10 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		}
 		b.AppendPeer(peer)
 		for j := range cfg.Peers[i].AllowedIPs {
+			if cfg.Peers[i].AllowedIPs[j].Remove {
+				return fmt.Errorf("allowed ips remove not supported: %w", os.ErrInvalid)
+			}
+
 			var family ioctl.AddressFamily
 			var ip net.IP
 			if ip = cfg.Peers[i].AllowedIPs[j].IP.To4(); ip != nil {
@@ -304,4 +309,8 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	}
 	interfaze, size := b.Interface()
 	return windows.DeviceIoControl(handle, ioctl.IoctlSet, nil, 0, (*byte)(unsafe.Pointer(interfaze)), size, &size, nil)
+}
+
+func (c *Client) SupportsAllowedIPRemove(name string) (bool, error) {
+	return false, nil
 }

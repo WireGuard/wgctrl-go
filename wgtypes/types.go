@@ -272,5 +272,15 @@ type PeerConfig struct {
 
 	// AllowedIPs specifies a list of allowed IP addresses in CIDR notation
 	// for this peer.
-	AllowedIPs []net.IPNet
+	AllowedIPs []AllowedIPConfig
+}
+
+// An AllowedIPConfig contains an allowed IP address in CIDR notation and a flag
+// indicating whether to add/remove this allowed IP to/from the peer.
+type AllowedIPConfig struct {
+	net.IPNet
+
+	// Remove specifies whether or not to remove this allowed IP from this
+	// peer.
+	Remove bool
 }

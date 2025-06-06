@@ -18,4 +18,5 @@ type Client interface {
 	Devices() ([]*wgtypes.Device, error)
 	Device(name string) (*wgtypes.Device, error)
 	ConfigureDevice(name string, cfg wgtypes.Config) error
+	SupportsAllowedIPRemove(name string) (bool, error)
 }

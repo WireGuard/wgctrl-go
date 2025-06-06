@@ -15,6 +15,13 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// TODO(jrife): These are placeholders. Replace these with values from the
+// golang.org/x/sys/unix package after it is updated for the 6.16 kernel.
+const (
+	WGALLOWEDIP_A_FLAGS     = 4
+	WGALLOWEDIP_F_REMOVE_ME = 1
+)
+
 // configAttrs creates the required encoded netlink attributes to configure
 // the device specified by name using the non-nil fields in cfg.
 func configAttrs(name string, cfg wgtypes.Config) ([]byte, error) {
@@ -101,16 +108,16 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 		// Iterate until no more allowed IPs.
 		var done bool
 		for !done {
-			var tmp []net.IPNet
+			var tmp []wgtypes.AllowedIPConfig
 			if len(p.AllowedIPs) < ipBatchChunk {
 				// IPs all fit within a batch; we are done.
-				tmp = make([]net.IPNet, len(p.AllowedIPs))
+				tmp = make([]wgtypes.AllowedIPConfig, len(p.AllowedIPs))
 				copy(tmp, p.AllowedIPs)
 				done = true
 			} else {
 				// IPs are larger than a single batch, copy a batch out and
 				// advance the cursor.
-				tmp = make([]net.IPNet, ipBatchChunk)
+				tmp = make([]wgtypes.AllowedIPConfig, ipBatchChunk)
 				copy(tmp, p.AllowedIPs[:ipBatchChunk])
 
 				p.AllowedIPs = p.AllowedIPs[ipBatchChunk:]
@@ -247,7 +254,7 @@ func encodeSockaddr(endpoint net.UDPAddr) func() ([]byte, error) {
 }
 
 // encodeAllowedIPs returns a function to encode allowed IP nested attributes.
-func encodeAllowedIPs(ipns []net.IPNet) func(ae *netlink.AttributeEncoder) error {
+func encodeAllowedIPs(ipns []wgtypes.AllowedIPConfig) func(ae *netlink.AttributeEncoder) error {
 	return func(ae *netlink.AttributeEncoder) error {
 		for i, ipn := range ipns {
 			if !isValidIP(ipn.IP) {
@@ -268,6 +275,9 @@ func encodeAllowedIPs(ipns []net.IPNet) func(ae *netlink.AttributeEncoder) error
 
 				ones, _ := ipn.Mask.Size()
 				nae.Uint8(unix.WGALLOWEDIP_A_CIDR_MASK, uint8(ones))
+				if ipn.Remove {
+					nae.Uint32(WGALLOWEDIP_A_FLAGS, WGALLOWEDIP_F_REMOVE_ME)
+				}
 				return nil
 			})
 		}
