@@ -194,7 +194,7 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 	data := wgh.WGDataIO{
 		Name: dname,
 		Data: mem,
-		Size: uint64(sz),
+		Size: wgh.SizeT(sz),
 	}
 
 	if err := c.ioctlWGDataIO(wgh.SIOCSWG, &data); err != nil {

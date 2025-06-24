@@ -44,7 +44,7 @@ func marshal(m List) (nvl *C.struct_nvlist, err error) {
 			C.nvlist_add_bool(nvl, ckey, C.bool(value))
 
 		case uint64:
-			C.nvlist_add_number(nvl, ckey, C.ulong(value))
+			C.nvlist_add_number(nvl, ckey, C.uint64_t(value))
 
 		case []byte:
 			sz := len(value)
@@ -55,7 +55,8 @@ func marshal(m List) (nvl *C.struct_nvlist, err error) {
 		case []List:
 			sz := len(value)
 			buf := C.malloc(C.size_t(C.sizeof_nvlist_ptr * sz))
-			items := (*[1<<30 - 1]*C.struct_nvlist)(buf)
+			p := (**C.struct_nvlist)(buf)
+			items := unsafe.Slice(p, sz)
 
 			for i, val := range value {
 				if items[i], err = marshal(val); err != nil {

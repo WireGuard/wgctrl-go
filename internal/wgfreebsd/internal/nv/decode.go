@@ -13,7 +13,7 @@ import (
 
 // Unmarshal decodes a FreeBSD name-value list (nv(9)) to a Go map
 func Unmarshal(d []byte, out List) error {
-	sz := C.ulong(len(d))
+	sz := C.size_t(len(d))
 	dp := unsafe.Pointer(&d[0])
 	nvl := C.nvlist_unpack(dp, sz, 0)
 

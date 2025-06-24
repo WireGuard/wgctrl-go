@@ -30,3 +30,7 @@ type WGDataIO struct {
 	Data *byte
 	Size uint64
 }
+
+func SizeT(i int) uint64 {
+    return uint64(i)
+}

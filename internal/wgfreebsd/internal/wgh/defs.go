@@ -49,3 +49,7 @@ type Ifgroupreq C.struct_go_ifgroupreq
 type Ifgreq C.struct_ifg_req
 
 type WGDataIO C.struct_wg_data_io
+
+func SizeT(i int) C.size_t {
+	return C.size_t(i)
+}
