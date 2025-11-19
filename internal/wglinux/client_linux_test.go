@@ -6,7 +6,7 @@ package wglinux
 import (
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"os/user"
 	"syscall"
@@ -325,7 +325,7 @@ func diffAttrs(x, y []netlink.Attribute) string {
 	return cmp.Diff(xPrime, yPrime)
 }
 
-func mustAllowedIPs(ipns []net.IPNet) []byte {
+func mustAllowedIPs(ipns []netip.Prefix) []byte {
 	ae := netlink.NewAttributeEncoder()
 	if err := encodeAllowedIPs(ipns)(ae); err != nil {
 		panicf("failed to create allowed IP attributes: %v", err)

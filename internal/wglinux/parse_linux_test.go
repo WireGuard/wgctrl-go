@@ -4,7 +4,9 @@
 package wglinux
 
 import (
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"net"
+	"net/netip"
 	"runtime"
 	"testing"
 	"time"
@@ -229,9 +231,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: unix.WGPEER_A_ALLOWEDIPS,
-										Data: mustAllowedIPs([]net.IPNet{
-											wgtest.MustCIDR("192.168.1.10/32"),
-											wgtest.MustCIDR("fd00::1/128"),
+										Data: mustAllowedIPs([]netip.Prefix{
+											netip.MustParsePrefix("192.168.1.10/32"),
+											netip.MustParsePrefix("fd00::1/128"),
 										}),
 									},
 									{
@@ -286,9 +288,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 							LastHandshakeTime:           time.Unix(10, 20),
 							ReceiveBytes:                100,
 							TransmitBytes:               200,
-							AllowedIPs: []net.IPNet{
-								wgtest.MustCIDR("192.168.1.10/32"),
-								wgtest.MustCIDR("fd00::1/128"),
+							AllowedIPs: []netip.Prefix{
+								netip.MustParsePrefix("192.168.1.10/32"),
+								netip.MustParsePrefix("fd00::1/128"),
 							},
 							ProtocolVersion: 1,
 						},
@@ -328,9 +330,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: unix.WGPEER_A_ALLOWEDIPS,
-										Data: mustAllowedIPs([]net.IPNet{
-											wgtest.MustCIDR("192.168.1.10/32"),
-											wgtest.MustCIDR("192.168.1.11/32"),
+										Data: mustAllowedIPs([]netip.Prefix{
+											netip.MustParsePrefix("192.168.1.10/32"),
+											netip.MustParsePrefix("192.168.1.11/32"),
 										}),
 									},
 								}...),
@@ -352,9 +354,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: unix.WGPEER_A_ALLOWEDIPS,
-										Data: mustAllowedIPs([]net.IPNet{
-											wgtest.MustCIDR("fd00:dead:beef:dead::/64"),
-											wgtest.MustCIDR("fd00:dead:beef:ffff::/64"),
+										Data: mustAllowedIPs([]netip.Prefix{
+											netip.MustParsePrefix("fd00:dead:beef:dead::/64"),
+											netip.MustParsePrefix("fd00:dead:beef:ffff::/64"),
 										}),
 									},
 								}...),
@@ -368,9 +370,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: unix.WGPEER_A_ALLOWEDIPS,
-										Data: mustAllowedIPs([]net.IPNet{
-											wgtest.MustCIDR("10.10.10.0/24"),
-											wgtest.MustCIDR("10.10.11.0/24"),
+										Data: mustAllowedIPs([]netip.Prefix{
+											netip.MustParsePrefix("10.10.10.0/24"),
+											netip.MustParsePrefix("10.10.11.0/24"),
 										}),
 									},
 								}...),
@@ -392,9 +394,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: unix.WGPEER_A_ALLOWEDIPS,
-										Data: mustAllowedIPs([]net.IPNet{
-											wgtest.MustCIDR("10.10.12.0/24"),
-											wgtest.MustCIDR("10.10.13.0/24"),
+										Data: mustAllowedIPs([]netip.Prefix{
+											netip.MustParsePrefix("10.10.12.0/24"),
+											netip.MustParsePrefix("10.10.13.0/24"),
 										}),
 									},
 								}...),
@@ -408,9 +410,9 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 									},
 									{
 										Type: unix.WGPEER_A_ALLOWEDIPS,
-										Data: mustAllowedIPs([]net.IPNet{
-											wgtest.MustCIDR("fd00:1234::/32"),
-											wgtest.MustCIDR("fd00:4567::/32"),
+										Data: mustAllowedIPs([]netip.Prefix{
+											netip.MustParsePrefix("fd00:1234::/32"),
+											netip.MustParsePrefix("fd00:4567::/32"),
 										}),
 									},
 								}...),
@@ -427,27 +429,27 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 					Peers: []wgtypes.Peer{
 						{
 							PublicKey: keyA,
-							AllowedIPs: []net.IPNet{
-								wgtest.MustCIDR("192.168.1.10/32"),
-								wgtest.MustCIDR("192.168.1.11/32"),
-								wgtest.MustCIDR("fd00:dead:beef:dead::/64"),
-								wgtest.MustCIDR("fd00:dead:beef:ffff::/64"),
+							AllowedIPs: []netip.Prefix{
+								netip.MustParsePrefix("192.168.1.10/32"),
+								netip.MustParsePrefix("192.168.1.11/32"),
+								netip.MustParsePrefix("fd00:dead:beef:dead::/64"),
+								netip.MustParsePrefix("fd00:dead:beef:ffff::/64"),
 							},
 						},
 						{
 							PublicKey: keyB,
-							AllowedIPs: []net.IPNet{
-								wgtest.MustCIDR("10.10.10.0/24"),
-								wgtest.MustCIDR("10.10.11.0/24"),
-								wgtest.MustCIDR("10.10.12.0/24"),
-								wgtest.MustCIDR("10.10.13.0/24"),
+							AllowedIPs: []netip.Prefix{
+								netip.MustParsePrefix("10.10.10.0/24"),
+								netip.MustParsePrefix("10.10.11.0/24"),
+								netip.MustParsePrefix("10.10.12.0/24"),
+								netip.MustParsePrefix("10.10.13.0/24"),
 							},
 						},
 						{
 							PublicKey: keyC,
-							AllowedIPs: []net.IPNet{
-								wgtest.MustCIDR("fd00:1234::/32"),
-								wgtest.MustCIDR("fd00:4567::/32"),
+							AllowedIPs: []netip.Prefix{
+								netip.MustParsePrefix("fd00:1234::/32"),
+								netip.MustParsePrefix("fd00:4567::/32"),
 							},
 						},
 					},
@@ -484,7 +486,7 @@ func TestLinuxClientDevicesOK(t *testing.T) {
 				t.Fatalf("failed to get devices: %v", err)
 			}
 
-			if diff := cmp.Diff(tt.devices, devices); diff != "" {
+			if diff := cmp.Diff(tt.devices, devices, cmpopts.EquateComparable(netip.Prefix{})); diff != "" {
 				t.Fatalf("unexpected devices (-want +got):\n%s", diff)
 			}
 		})

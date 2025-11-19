@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"time"
@@ -201,7 +202,7 @@ func parseDevice(name string, ifio *wgh.WGInterfaceIO) (*wgtypes.Device, error) 
 
 		// Same idea, we know how many allowed IPs we need to account for, so
 		// reserve the space and advance the pointer through each WGAIP structure.
-		p.AllowedIPs = make([]net.IPNet, 0, peer.Aips_count)
+		p.AllowedIPs = make([]netip.Prefix, 0, peer.Aips_count)
 		for j := uintptr(0); j < uintptr(peer.Aips_count); j++ {
 			aip := (*wgh.WGAIPIO)(unsafe.Pointer(
 				uintptr(unsafe.Pointer(peer)) + wgh.SizeofWGPeerIO + j*wgh.SizeofWGAIPIO,
@@ -283,21 +284,15 @@ func parsePeer(pio *wgh.WGPeerIO) wgtypes.Peer {
 }
 
 // parseAllowedIP unpacks a net.IPNet from a WGAIP structure.
-func parseAllowedIP(aip *wgh.WGAIPIO) net.IPNet {
+func parseAllowedIP(aip *wgh.WGAIPIO) netip.Prefix {
 	switch aip.Af {
 	case unix.AF_INET:
-		return net.IPNet{
-			IP:   net.IP(aip.Addr[:net.IPv4len]),
-			Mask: net.CIDRMask(int(aip.Cidr), 32),
-		}
+		return netip.PrefixFrom(netip.AddrFrom4([4]byte(aip.Addr[:4])), int(aip.Cidr))
 	case unix.AF_INET6:
-		return net.IPNet{
-			IP:   net.IP(aip.Addr[:]),
-			Mask: net.CIDRMask(int(aip.Cidr), 128),
-		}
+		return netip.PrefixFrom(netip.AddrFrom16(aip.Addr), int(aip.Cidr))
 	default:
 		panicf("wgopenbsd: invalid address family for allowed IP: %+v", aip)
-		return net.IPNet{}
+		return netip.Prefix{}
 	}
 }
 

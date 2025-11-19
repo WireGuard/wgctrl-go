@@ -5,7 +5,7 @@ package wgopenbsd
 
 import (
 	"errors"
-	"net"
+	"net/netip"
 	"os"
 	"testing"
 	"time"
@@ -239,20 +239,20 @@ func TestClientDeviceBasic(t *testing.T) {
 				ReceiveBytes:                2,
 				TransmitBytes:               1,
 				LastHandshakeTime:           time.Unix(1, 2),
-				AllowedIPs: []net.IPNet{
-					wgtest.MustCIDR("192.168.1.0/24"),
-					wgtest.MustCIDR("fd00::/64"),
+				AllowedIPs: []netip.Prefix{
+					netip.MustParsePrefix("192.168.1.0/24"),
+					netip.MustParsePrefix("fd00::/64"),
 				},
 				ProtocolVersion: 1,
 			},
 			{
 				PublicKey:  peerB,
 				Endpoint:   wgtest.MustUDPAddr("[::1]:2048"),
-				AllowedIPs: []net.IPNet{wgtest.MustCIDR("2001:db8::1/128")},
+				AllowedIPs: []netip.Prefix{netip.MustParsePrefix("2001:db8::1/128")},
 			},
 			{
 				PublicKey:  peerC,
-				AllowedIPs: []net.IPNet{},
+				AllowedIPs: []netip.Prefix{},
 			},
 		},
 	}

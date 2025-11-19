@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"net/netip"
 	"time"
 
 	"golang.org/x/crypto/curve25519"
@@ -195,7 +196,7 @@ type Peer struct {
 	//
 	// 0.0.0.0/0 indicates that all IPv4 addresses are allowed, and ::/0
 	// indicates that all IPv6 addresses are allowed.
-	AllowedIPs []net.IPNet
+	AllowedIPs []netip.Prefix
 
 	// ProtocolVersion specifies which version of the WireGuard protocol is used
 	// for this Peer.
@@ -272,5 +273,5 @@ type PeerConfig struct {
 
 	// AllowedIPs specifies a list of allowed IP addresses in CIDR notation
 	// for this peer.
-	AllowedIPs []net.IPNet
+	AllowedIPs []netip.Prefix
 }

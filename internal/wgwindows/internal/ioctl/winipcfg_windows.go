@@ -8,6 +8,7 @@ package ioctl
 import (
 	"encoding/binary"
 	"net"
+	"net/netip"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -33,26 +34,26 @@ func htons(i uint16) uint16 {
 	return *(*uint16)(unsafe.Pointer(&b[0]))
 }
 
-// SetIP method sets family, address, and port to the given IPv4 or IPv6 address and port.
+// SetAddrPort method sets family, address, and port to the given IPv4 or IPv6 address and port.
 // All other members of the structure are set to zero.
-func (addr *RawSockaddrInet) SetIP(ip net.IP, port uint16) error {
-	if v4 := ip.To4(); v4 != nil {
+func (addr *RawSockaddrInet) SetAddrPort(addrPort netip.AddrPort) error {
+	a := addrPort.Addr().Unmap()
+	switch {
+	case a.Is4():
 		addr4 := (*windows.RawSockaddrInet4)(unsafe.Pointer(addr))
 		addr4.Family = windows.AF_INET
-		copy(addr4.Addr[:], v4)
-		addr4.Port = htons(port)
+		addr4.Addr = a.As4()
+		addr4.Port = htons(addrPort.Port())
 		for i := 0; i < 8; i++ {
 			addr4.Zero[i] = 0
 		}
 		return nil
-	}
-
-	if v6 := ip.To16(); v6 != nil {
+	case a.Is6():
 		addr6 := (*windows.RawSockaddrInet6)(unsafe.Pointer(addr))
 		addr6.Family = windows.AF_INET6
-		addr6.Port = htons(port)
+		addr6.Port = htons(addrPort.Port())
 		addr6.Flowinfo = 0
-		copy(addr6.Addr[:], v6)
+		addr6.Addr = a.As16()
 		addr6.Scope_id = 0
 		return nil
 	}

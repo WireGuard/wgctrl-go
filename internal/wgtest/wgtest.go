@@ -3,20 +3,9 @@ package wgtest
 import (
 	"encoding/hex"
 	"fmt"
-	"net"
-
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"net"
 )
-
-// MustCIDR converts CIDR string s into a net.IPNet or panics.
-func MustCIDR(s string) net.IPNet {
-	_, cidr, err := net.ParseCIDR(s)
-	if err != nil {
-		panicf("wgtest: failed to parse CIDR: %v", err)
-	}
-
-	return *cidr
-}
 
 // MustHexKey decodes a hex string s as a key or panics.
 func MustHexKey(s string) wgtypes.Key {

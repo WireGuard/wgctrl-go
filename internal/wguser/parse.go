@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"time"
@@ -243,16 +244,16 @@ func (dp *deviceParser) parseAddr(s string) *net.UDPAddr {
 }
 
 // parseInt parses an address CIDR from a string.
-func (dp *deviceParser) parseCIDR(s string) *net.IPNet {
+func (dp *deviceParser) parseCIDR(s string) *netip.Prefix {
 	if dp.err != nil {
 		return nil
 	}
 
-	_, cidr, err := net.ParseCIDR(s)
+	prefix, err := netip.ParsePrefix(s)
 	if err != nil {
 		dp.err = err
 		return nil
 	}
 
-	return cidr
+	return &prefix
 }

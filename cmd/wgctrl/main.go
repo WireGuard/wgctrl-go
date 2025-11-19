@@ -6,7 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
+	"net/netip"
 	"strings"
 
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -83,7 +83,7 @@ func printPeer(p wgtypes.Peer) {
 	)
 }
 
-func ipsString(ipns []net.IPNet) string {
+func ipsString(ipns []netip.Prefix) string {
 	ss := make([]string, 0, len(ipns))
 	for _, ipn := range ipns {
 		ss = append(ss, ipn.String())

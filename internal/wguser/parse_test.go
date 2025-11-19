@@ -1,7 +1,9 @@
 package wguser
 
 import (
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -99,11 +101,8 @@ func TestClientDevices(t *testing.T) {
 							Zone: "2",
 						},
 						LastHandshakeTime: time.Unix(1, 2),
-						AllowedIPs: []net.IPNet{
-							{
-								IP:   net.IP{0xc0, 0xa8, 0x4, 0x4},
-								Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
-							},
+						AllowedIPs: []netip.Prefix{
+							netip.PrefixFrom(netip.AddrFrom4([4]byte{0xc0, 0xa8, 0x4, 0x4}), 32),
 						},
 					},
 					{
@@ -119,11 +118,8 @@ func TestClientDevices(t *testing.T) {
 						PersistentKeepaliveInterval: 111000000000,
 						ReceiveBytes:                2224,
 						TransmitBytes:               38333,
-						AllowedIPs: []net.IPNet{
-							{
-								IP:   net.IP{0xc0, 0xa8, 0x4, 0x6},
-								Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
-							},
+						AllowedIPs: []netip.Prefix{
+							netip.PrefixFrom(netip.AddrFrom4([4]byte{0xc0, 0xa8, 0x4, 0x6}), 32),
 						},
 					},
 					{
@@ -134,15 +130,9 @@ func TestClientDevices(t *testing.T) {
 						},
 						ReceiveBytes:  1929999999,
 						TransmitBytes: 1212111,
-						AllowedIPs: []net.IPNet{
-							{
-								IP:   net.IP{0xc0, 0xa8, 0x4, 0xa},
-								Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
-							},
-							{
-								IP:   net.IP{0xc0, 0xa8, 0x4, 0xb},
-								Mask: net.IPMask{0xff, 0xff, 0xff, 0xff},
-							},
+						AllowedIPs: []netip.Prefix{
+							netip.PrefixFrom(netip.AddrFrom4([4]byte{0xc0, 0xa8, 0x4, 0xa}), 32),
+							netip.PrefixFrom(netip.AddrFrom4([4]byte{0xc0, 0xa8, 0x4, 0xb}), 32),
 						},
 						ProtocolVersion: 1,
 					},
@@ -168,7 +158,7 @@ func TestClientDevices(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff([]*wgtypes.Device{tt.d}, devs); diff != "" {
+			if diff := cmp.Diff([]*wgtypes.Device{tt.d}, devs, cmpopts.EquateComparable(netip.Prefix{})); diff != "" {
 				t.Fatalf("unexpected Devices (-want +got):\n%s", diff)
 			}
 		})

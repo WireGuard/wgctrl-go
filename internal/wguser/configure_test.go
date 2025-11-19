@@ -2,7 +2,7 @@ package wguser
 
 import (
 	"errors"
-	"net"
+	"net/netip"
 	"os"
 	"testing"
 	"time"
@@ -109,8 +109,8 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 						PresharedKey:      keyPtr(wgtest.MustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
 						Endpoint:          wgtest.MustUDPAddr("[abcd:23::33%2]:51820"),
 						ReplaceAllowedIPs: true,
-						AllowedIPs: []net.IPNet{
-							wgtest.MustCIDR("192.168.4.4/32"),
+						AllowedIPs: []netip.Prefix{
+							netip.MustParsePrefix("192.168.4.4/32"),
 						},
 					},
 					{
@@ -119,17 +119,17 @@ func TestClientConfigureDeviceOK(t *testing.T) {
 						Endpoint:                    wgtest.MustUDPAddr("182.122.22.19:3233"),
 						PersistentKeepaliveInterval: durPtr(111 * time.Second),
 						ReplaceAllowedIPs:           true,
-						AllowedIPs: []net.IPNet{
-							wgtest.MustCIDR("192.168.4.6/32"),
+						AllowedIPs: []netip.Prefix{
+							netip.MustParsePrefix("192.168.4.6/32"),
 						},
 					},
 					{
 						PublicKey:         wgtest.MustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
 						Endpoint:          wgtest.MustUDPAddr("5.152.198.39:51820"),
 						ReplaceAllowedIPs: true,
-						AllowedIPs: []net.IPNet{
-							wgtest.MustCIDR("192.168.4.10/32"),
-							wgtest.MustCIDR("192.168.4.11/32"),
+						AllowedIPs: []netip.Prefix{
+							netip.MustParsePrefix("192.168.4.10/32"),
+							netip.MustParsePrefix("192.168.4.11/32"),
 						},
 					},
 					{

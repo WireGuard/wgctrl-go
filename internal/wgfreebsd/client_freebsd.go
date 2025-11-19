@@ -12,8 +12,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 	"unsafe"
 
@@ -275,24 +277,18 @@ func parseEndpoint(ep []byte) *net.UDPAddr {
 	case unix.AF_INET:
 		sa := (*unix.RawSockaddrInet4)(unsafe.Pointer(&ep[0]))
 
-		ep := &net.UDPAddr{
-			IP:   make(net.IP, net.IPv4len),
-			Port: ntohs(sa.Port),
-		}
-		copy(ep.IP, sa.Addr[:])
-
-		return ep
+		return net.UDPAddrFromAddrPort(netip.AddrPortFrom(netip.AddrFrom4(sa.Addr), sa.Port))
 	case unix.AF_INET6:
 		sa := (*unix.RawSockaddrInet6)(unsafe.Pointer(&ep[0]))
 
-		// TODO(mdlayher): IPv6 zone?
-		ep := &net.UDPAddr{
-			IP:   make(net.IP, net.IPv6len),
-			Port: ntohs(sa.Port),
-		}
-		copy(ep.IP, sa.Addr[:])
+		addr := netip.AddrFrom16(sa.Addr)
 
-		return ep
+		// If the address is an IPv6 link-local address and the scope ID is non-zero
+		// then use the scope ID as the zone
+		if addr.Is6() && addr.IsLinkLocalUnicast() && sa.Scope_id != 0 {
+			addr = addr.WithZone(strconv.FormatUint(uint64(sa.Scope_id), 10))
+		}
+		return net.UDPAddrFromAddrPort(netip.AddrPortFrom(addr, sa.Port))
 	default:
 		// No endpoint configured.
 		return nil
@@ -302,54 +298,55 @@ func parseEndpoint(ep []byte) *net.UDPAddr {
 func unparseEndpoint(ep net.UDPAddr) []byte {
 	var b []byte
 
-	if v4 := ep.IP.To4(); v4 != nil {
+	addrPort := ep.AddrPort()
+	addr := addrPort.Addr().Unmap()
+
+	switch {
+	case addr.Is4():
 		b = make([]byte, unsafe.Sizeof(unix.RawSockaddrInet4{}))
 		sa := (*unix.RawSockaddrInet4)(unsafe.Pointer(&b[0]))
 
 		sa.Family = unix.AF_INET
 		sa.Port = htons(ep.Port)
-		copy(sa.Addr[:], v4)
-	} else if v6 := ep.IP.To16(); v6 != nil {
+		sa.Addr = addr.As4()
+	case addr.Is6():
 		b = make([]byte, unsafe.Sizeof(unix.RawSockaddrInet6{}))
 		sa := (*unix.RawSockaddrInet6)(unsafe.Pointer(&b[0]))
 
 		sa.Family = unix.AF_INET6
 		sa.Port = htons(ep.Port)
-		copy(sa.Addr[:], v6)
+		sa.Addr = addr.As16()
 	}
 
 	return b
 }
 
 // parseAllowedIP unpacks a net.IPNet from a WGAIP structure.
-func parseAllowedIP(aip nv.List) net.IPNet {
+func parseAllowedIP(aip nv.List) netip.Prefix {
 	cidr := int(aip["cidr"].(uint64))
 	if ip, ok := aip["ipv4"]; ok {
-		return net.IPNet{
-			IP:   net.IP(ip.([]byte)),
-			Mask: net.CIDRMask(cidr, 32),
-		}
+		addr, _ := netip.AddrFromSlice(ip.([]byte))
+		return netip.PrefixFrom(addr, cidr)
 	} else if ip, ok := aip["ipv6"]; ok {
-		return net.IPNet{
-			IP:   net.IP(ip.([]byte)),
-			Mask: net.CIDRMask(cidr, 128),
-		}
+		addr, _ := netip.AddrFromSlice(ip.([]byte))
+		return netip.PrefixFrom(addr, cidr)
 	} else {
 		panicf("wgfreebsd: invalid address family for allowed IP: %+v", aip)
-		return net.IPNet{}
+		return netip.Prefix{}
 	}
 }
 
-func unparseAllowedIP(aip net.IPNet) nv.List {
+func unparseAllowedIP(aip netip.Prefix) nv.List {
 	m := nv.List{}
 
-	ones, _ := aip.Mask.Size()
-	m["cidr"] = uint64(ones)
+	m["cidr"] = uint64(aip.Bits())
 
-	if v4 := aip.IP.To4(); v4 != nil {
-		m["ipv4"] = []byte(v4)
-	} else if v6 := aip.IP.To16(); v6 != nil {
-		m["ipv6"] = []byte(v6)
+	addr := aip.Addr().Unmap()
+	switch {
+	case addr.Is4():
+		m["ipv4"] = addr.AsSlice()
+	case addr.Is6():
+		m["ipv6"] = addr.AsSlice()
 	}
 
 	return m

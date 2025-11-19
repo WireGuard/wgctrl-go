@@ -5,6 +5,7 @@ package wglinux
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 	"unsafe"
@@ -45,9 +46,9 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 			name: "bad peer allowed IP",
 			cfg: wgtypes.Config{
 				Peers: []wgtypes.PeerConfig{{
-					AllowedIPs: []net.IPNet{{
-						IP: net.IP{0xff},
-					}},
+					AllowedIPs: []netip.Prefix{
+						{},
+					},
 				}},
 			},
 		},
@@ -71,8 +72,8 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 						PresharedKey:      keyPtr(wgtest.MustHexKey("188515093e952f5f22e865cef3012e72f8b5f0b598ac0309d5dacce3b70fcf52")),
 						Endpoint:          wgtest.MustUDPAddr("[abcd:23::33%2]:51820"),
 						ReplaceAllowedIPs: true,
-						AllowedIPs: []net.IPNet{
-							wgtest.MustCIDR("192.168.4.4/32"),
+						AllowedIPs: []netip.Prefix{
+							netip.MustParsePrefix("192.168.4.4/32"),
 						},
 					},
 					{
@@ -81,17 +82,17 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 						Endpoint:                    wgtest.MustUDPAddr("182.122.22.19:3233"),
 						PersistentKeepaliveInterval: durPtr(111 * time.Second),
 						ReplaceAllowedIPs:           true,
-						AllowedIPs: []net.IPNet{
-							wgtest.MustCIDR("192.168.4.6/32"),
+						AllowedIPs: []netip.Prefix{
+							netip.MustParsePrefix("192.168.4.6/32"),
 						},
 					},
 					{
 						PublicKey:         wgtest.MustHexKey("662e14fd594556f522604703340351258903b64f35553763f19426ab2a515c58"),
 						Endpoint:          wgtest.MustUDPAddr("5.152.198.39:51820"),
 						ReplaceAllowedIPs: true,
-						AllowedIPs: []net.IPNet{
-							wgtest.MustCIDR("192.168.4.10/32"),
-							wgtest.MustCIDR("192.168.4.11/32"),
+						AllowedIPs: []netip.Prefix{
+							netip.MustParsePrefix("192.168.4.10/32"),
+							netip.MustParsePrefix("192.168.4.11/32"),
 						},
 					},
 					{
@@ -151,8 +152,8 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								},
 								{
 									Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
-									Data: mustAllowedIPs([]net.IPNet{
-										wgtest.MustCIDR("192.168.4.4/32"),
+									Data: mustAllowedIPs([]netip.Prefix{
+										netip.MustParsePrefix("192.168.4.4/32"),
 									}),
 								},
 							}...),
@@ -182,8 +183,8 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								},
 								{
 									Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
-									Data: mustAllowedIPs([]net.IPNet{
-										wgtest.MustCIDR("192.168.4.6/32"),
+									Data: mustAllowedIPs([]netip.Prefix{
+										netip.MustParsePrefix("192.168.4.6/32"),
 									}),
 								},
 							}...),
@@ -209,9 +210,9 @@ func TestLinuxClientConfigureDevice(t *testing.T) {
 								},
 								{
 									Type: netlink.Nested | unix.WGPEER_A_ALLOWEDIPS,
-									Data: mustAllowedIPs([]net.IPNet{
-										wgtest.MustCIDR("192.168.4.10/32"),
-										wgtest.MustCIDR("192.168.4.11/32"),
+									Data: mustAllowedIPs([]netip.Prefix{
+										netip.MustParsePrefix("192.168.4.10/32"),
+										netip.MustParsePrefix("192.168.4.11/32"),
 									}),
 								},
 							}...),
@@ -513,23 +514,25 @@ func keyBytes(s string) []byte {
 	return k[:]
 }
 
-func generateIPs(n int) []net.IPNet {
+func generateIPs(n int) []netip.Prefix {
 	cur, err := ipaddr.Parse("2001:db8::/64")
 	if err != nil {
 		panicf("failed to create cursor: %v", err)
 	}
 
-	ips := make([]net.IPNet, 0, n)
+	ips := make([]netip.Prefix, 0, n)
 	for i := 0; i < n; i++ {
 		pos := cur.Next()
 		if pos == nil {
 			panic("hit nil IP during IP generation")
 		}
 
-		ips = append(ips, net.IPNet{
-			IP:   pos.IP,
-			Mask: net.CIDRMask(128, 128),
-		})
+		addr, ok := netip.AddrFromSlice(pos.IP)
+		if !ok {
+			panicf("failed to convert net.IP to netip.Addr: %s", pos.IP)
+		}
+
+		ips = append(ips, netip.PrefixFrom(addr, addr.BitLen()))
 	}
 
 	return ips

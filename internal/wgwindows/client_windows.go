@@ -2,6 +2,7 @@ package wgwindows
 
 import (
 	"net"
+	"net/netip"
 	"os"
 	"time"
 	"unsafe"
@@ -209,19 +210,14 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 			} else {
 				a = a.NextAllowedIP()
 			}
-			var ip net.IP
-			var bits int
-			if a.AddressFamily == windows.AF_INET {
-				ip = a.Address[:4]
-				bits = 32
-			} else if a.AddressFamily == windows.AF_INET6 {
-				ip = a.Address[:16]
-				bits = 128
+			var prefix netip.Prefix
+			switch a.AddressFamily {
+			case windows.AF_INET:
+				prefix = netip.PrefixFrom(netip.AddrFrom4([4]byte(a.Address[:4])), int(a.Cidr))
+			case windows.AF_INET6:
+				prefix = netip.PrefixFrom(netip.AddrFrom16(a.Address), int(a.Cidr))
 			}
-			peer.AllowedIPs = append(peer.AllowedIPs, net.IPNet{
-				IP:   ip,
-				Mask: net.CIDRMask(int(a.Cidr), bits),
-			})
+			peer.AllowedIPs = append(peer.AllowedIPs, prefix)
 		}
 		device.Peers = append(device.Peers, peer)
 	}
@@ -276,7 +272,7 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		}
 		if cfg.Peers[i].Endpoint != nil {
 			peer.Flags |= ioctl.PeerHasEndpoint
-			peer.Endpoint.SetIP(cfg.Peers[i].Endpoint.IP, uint16(cfg.Peers[i].Endpoint.Port))
+			peer.Endpoint.SetAddrPort(cfg.Peers[i].Endpoint.AddrPort())
 		}
 		if cfg.Peers[i].PersistentKeepaliveInterval != nil {
 			peer.Flags |= ioctl.PeerHasPersistentKeepalive
@@ -285,20 +281,21 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		b.AppendPeer(peer)
 		for j := range cfg.Peers[i].AllowedIPs {
 			var family ioctl.AddressFamily
-			var ip net.IP
-			if ip = cfg.Peers[i].AllowedIPs[j].IP.To4(); ip != nil {
+			prefix := cfg.Peers[i].AllowedIPs[j]
+
+			// Unmap 4in6 addresses to maintain previous compatibility
+			addr := prefix.Addr().Unmap()
+			switch {
+			case addr.Is4():
 				family = windows.AF_INET
-			} else if ip = cfg.Peers[i].AllowedIPs[j].IP.To16(); ip != nil {
+			case addr.Is6():
 				family = windows.AF_INET6
-			} else {
-				ip = cfg.Peers[i].AllowedIPs[j].IP
 			}
-			cidr, _ := cfg.Peers[i].AllowedIPs[j].Mask.Size()
 			a := &ioctl.AllowedIP{
 				AddressFamily: family,
-				Cidr:          uint8(cidr),
+				Cidr:          uint8(prefix.Bits()),
 			}
-			copy(a.Address[:], ip)
+			copy(a.Address[:], addr.AsSlice())
 			b.AppendAllowedIP(a)
 		}
 	}
