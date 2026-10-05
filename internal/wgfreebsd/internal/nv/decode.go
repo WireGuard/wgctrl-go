@@ -8,14 +8,23 @@ package nv
 import "C"
 
 import (
+	"errors"
 	"unsafe"
 )
 
 // Unmarshal decodes a FreeBSD name-value list (nv(9)) to a Go map
 func Unmarshal(d []byte, out List) error {
+	if len(d) == 0 {
+		return errors.New("nv: empty input buffer")
+	}
+
 	sz := C.ulong(len(d))
 	dp := unsafe.Pointer(&d[0])
 	nvl := C.nvlist_unpack(dp, sz, 0)
+	if nvl == nil {
+		return errors.New("nv: failed to unpack nvlist")
+	}
+	defer C.nvlist_destroy(nvl)
 
 	return unmarshal(nvl, out)
 }

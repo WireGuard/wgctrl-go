@@ -269,10 +269,18 @@ func htons(i int) uint16 {
 
 // parseEndpoint converts a struct sockaddr to a Go net.UDPAddr
 func parseEndpoint(ep []byte) *net.UDPAddr {
+	if len(ep) < int(unsafe.Sizeof(unix.RawSockaddr{})) {
+		return nil
+	}
+
 	sa := (*unix.RawSockaddr)(unsafe.Pointer(&ep[0]))
 
 	switch sa.Family {
 	case unix.AF_INET:
+		if len(ep) < int(unsafe.Sizeof(unix.RawSockaddrInet4{})) {
+			return nil
+		}
+
 		sa := (*unix.RawSockaddrInet4)(unsafe.Pointer(&ep[0]))
 
 		ep := &net.UDPAddr{
@@ -283,6 +291,10 @@ func parseEndpoint(ep []byte) *net.UDPAddr {
 
 		return ep
 	case unix.AF_INET6:
+		if len(ep) < int(unsafe.Sizeof(unix.RawSockaddrInet6{})) {
+			return nil
+		}
+
 		sa := (*unix.RawSockaddrInet6)(unsafe.Pointer(&ep[0]))
 
 		// TODO(mdlayher): IPv6 zone?
@@ -323,21 +335,25 @@ func unparseEndpoint(ep net.UDPAddr) []byte {
 
 // parseAllowedIP unpacks a net.IPNet from a WGAIP structure.
 func parseAllowedIP(aip nv.List) net.IPNet {
-	cidr := int(aip["cidr"].(uint64))
-	if ip, ok := aip["ipv4"]; ok {
-		return net.IPNet{
-			IP:   net.IP(ip.([]byte)),
-			Mask: net.CIDRMask(cidr, 32),
-		}
-	} else if ip, ok := aip["ipv6"]; ok {
-		return net.IPNet{
-			IP:   net.IP(ip.([]byte)),
-			Mask: net.CIDRMask(cidr, 128),
-		}
-	} else {
-		panicf("wgfreebsd: invalid address family for allowed IP: %+v", aip)
+	cidrRaw, ok := aip["cidr"].(uint64)
+	if !ok {
 		return net.IPNet{}
 	}
+	cidr := int(cidrRaw)
+
+	if ip, ok := aip["ipv4"].([]byte); ok {
+		return net.IPNet{
+			IP:   net.IP(ip),
+			Mask: net.CIDRMask(cidr, 32),
+		}
+	} else if ip, ok := aip["ipv6"].([]byte); ok {
+		return net.IPNet{
+			IP:   net.IP(ip),
+			Mask: net.CIDRMask(cidr, 128),
+		}
+	}
+
+	return net.IPNet{}
 }
 
 func unparseAllowedIP(aip net.IPNet) nv.List {
@@ -379,13 +395,15 @@ func parsePeer(v nv.List) wgtypes.Peer {
 	}
 
 	if v, ok := v["public-key"]; ok {
-		pk := (*wgtypes.Key)(v.([]byte))
-		p.PublicKey = *pk
+		if b, ok := v.([]byte); ok && len(b) == 32 {
+			p.PublicKey = *(*wgtypes.Key)(b)
+		}
 	}
 
 	if v, ok := v["preshared-key"]; ok {
-		psk := (*wgtypes.Key)(v.([]byte))
-		p.PresharedKey = *psk
+		if b, ok := v.([]byte); ok && len(b) == 32 {
+			p.PresharedKey = *(*wgtypes.Key)(b)
+		}
 	}
 
 	if v, ok := v["last-handshake-time"]; ok {

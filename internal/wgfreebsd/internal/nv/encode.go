@@ -14,6 +14,8 @@ typedef struct nvlist *nvlist_ptr;
 import "C"
 
 import (
+	"errors"
+	"math"
 	"unsafe"
 )
 
@@ -54,11 +56,27 @@ func marshal(m List) (nvl *C.struct_nvlist, err error) {
 
 		case []List:
 			sz := len(value)
+			if sz == 0 {
+				C.nvlist_add_nvlist_array(nvl, ckey, nil, 0)
+				break
+			}
+			if sz > math.MaxInt/int(C.sizeof_nvlist_ptr) {
+				C.free(unsafe.Pointer(ckey))
+				return nil, errors.New("nv: array size overflow")
+			}
 			buf := C.malloc(C.size_t(C.sizeof_nvlist_ptr * sz))
+			if buf == nil {
+				C.free(unsafe.Pointer(ckey))
+				return nil, errors.New("nv: failed to allocate memory for nvlist array")
+			}
 			items := (*[1<<30 - 1]*C.struct_nvlist)(buf)
 
 			for i, val := range value {
 				if items[i], err = marshal(val); err != nil {
+					for j := 0; j < i; j++ {
+						C.nvlist_destroy(items[j])
+					}
+					C.free(buf)
 					C.free(unsafe.Pointer(ckey))
 					return nil, err
 				}
