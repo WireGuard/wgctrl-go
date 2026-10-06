@@ -1,6 +1,7 @@
 package wgwindows
 
 import (
+	"errors"
 	"net"
 	"os"
 	"time"
@@ -162,6 +163,18 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 		break
 	}
 	c.lastLenGuess = size
+
+	if int(size) > len(buf) {
+		return nil, errors.New("wgwindows: DeviceIoControl returned size exceeding buffer length")
+	}
+
+	return parseDevice(name, buf[:size])
+}
+
+func parseDevice(name string, buf []byte) (*wgtypes.Device, error) {
+	if uintptr(len(buf)) < unsafe.Sizeof(ioctl.Interface{}) {
+		return nil, errors.New("wgwindows: received truncated interface buffer")
+	}
 	interfaze := (*ioctl.Interface)(unsafe.Pointer(&buf[0]))
 
 	device := wgtypes.Device{Type: wgtypes.WindowsKernel, Name: name}
@@ -174,13 +187,15 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	if interfaze.Flags&ioctl.InterfaceHasListenPort != 0 {
 		device.ListenPort = int(interfaze.ListenPort)
 	}
-	var p *ioctl.Peer
+
+	offset := unsafe.Sizeof(ioctl.Interface{})
 	for i := uint32(0); i < interfaze.PeerCount; i++ {
-		if p == nil {
-			p = interfaze.FirstPeer()
-		} else {
-			p = p.NextPeer()
+		if uintptr(len(buf))-offset < unsafe.Sizeof(ioctl.Peer{}) {
+			return nil, errors.New("wgwindows: received truncated peer buffer")
 		}
+		p := (*ioctl.Peer)(unsafe.Pointer(&buf[offset]))
+		offset += unsafe.Sizeof(ioctl.Peer{})
+
 		peer := wgtypes.Peer{}
 		if p.Flags&ioctl.PeerHasPublicKey != 0 {
 			peer.PublicKey = p.PublicKey
@@ -202,13 +217,14 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 		if p.LastHandshake != 0 {
 			peer.LastHandshakeTime = time.Unix(0, int64((p.LastHandshake-116444736000000000)*100))
 		}
-		var a *ioctl.AllowedIP
+
 		for j := uint32(0); j < p.AllowedIPsCount; j++ {
-			if a == nil {
-				a = p.FirstAllowedIP()
-			} else {
-				a = a.NextAllowedIP()
+			if uintptr(len(buf))-offset < unsafe.Sizeof(ioctl.AllowedIP{}) {
+				return nil, errors.New("wgwindows: received truncated allowed IP buffer")
 			}
+			a := (*ioctl.AllowedIP)(unsafe.Pointer(&buf[offset]))
+			offset += unsafe.Sizeof(ioctl.AllowedIP{})
+
 			var ip net.IP
 			var bits int
 			if a.AddressFamily == windows.AF_INET {
